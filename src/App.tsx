@@ -9,7 +9,8 @@ import { StatsRow } from './components/StatsRow';
 import { TokenCard } from './components/TokenCard';
 import { BackupGrid } from './components/BackupGrid';
 import { ChatExplorer } from './components/ChatExplorer';
-import { Shield, LogOut, CheckCircle, Smartphone, RefreshCw, AlertTriangle } from 'lucide-react';
+import { ProfileModal } from './components/ProfileModal';
+import { Shield, LogOut, CheckCircle, Smartphone, RefreshCw, AlertTriangle, User as UserIcon } from 'lucide-react';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -20,6 +21,7 @@ export default function App() {
   const [authLoading, setAuthLoading] = useState(true);
   const [dataLoading, setDataLoading] = useState(false);
   const [connectionVerified, setConnectionVerified] = useState<boolean | null>(null);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
 
   // 1. Critical Base Connectivity check on boot
   useEffect(() => {
@@ -128,40 +130,88 @@ export default function App() {
 
   if (!isAdmin) {
     return (
-      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 text-center">
-        <div className="bg-white border border-slate-200 shadow-xl rounded-2xl p-8 max-w-sm w-full">
-          {userProfile && (
-            <div className="flex flex-col items-center mb-6">
-              {userProfile.photoURL ? (
-                <img 
-                  src={userProfile.photoURL} 
-                  alt="avatar" 
-                  referrerPolicy="no-referrer"
-                  className="w-20 h-20 rounded-full border-4 border-white shadow-lg mb-4" 
-                />
-              ) : (
-                <div className="w-20 h-20 rounded-full bg-blue-50 border-4 border-white shadow-lg text-blue-600 flex items-center justify-center text-3xl font-bold mb-4">
-                  {userProfile.displayName ? userProfile.displayName.substring(0, 1).toUpperCase() : 'M'}
-                </div>
-              )}
-              <h2 className="text-xl font-bold text-slate-800">{userProfile.displayName || 'Customer'}</h2>
-              <p className="text-sm text-slate-500 font-mono">{userProfile.email}</p>
+      <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
+        {/* Customer Header */}
+        <header className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between shadow-sm">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center border border-blue-100">
+              <Shield className="w-4.5 h-4.5" />
             </div>
-          )}
-          
-          <div className="bg-blue-50 text-blue-800 text-sm font-medium rounded-lg px-4 py-3 mb-8 flex items-center justify-center gap-2">
-            <CheckCircle className="w-5 h-5 text-blue-600" />
-            You have logged into the app portal.
+            <div>
+              <h1 className="font-bold text-slate-800 text-sm sm:text-base leading-none">Customer Access Portal</h1>
+              <p className="text-[10px] text-slate-400 font-mono mt-0.5">MESSAGE BACKUP CLIENT</p>
+            </div>
           </div>
-          
-          <button
-            onClick={handleLogout}
-            className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-2.5 px-4 rounded-xl transition flex items-center justify-center gap-2"
-          >
-            <LogOut className="w-4 h-4" />
-            Sign Out
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setIsProfileOpen(true)}
+              className="text-xs font-semibold bg-blue-50 hover:bg-blue-100 text-blue-600 px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 border border-blue-100/50"
+            >
+              <UserIcon className="w-3.5 h-3.5" /> Profile Settings
+            </button>
+            <button
+              onClick={handleLogout}
+              className="text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg transition flex items-center gap-1.5"
+            >
+              <LogOut className="w-3.5 h-3.5" /> Sign Out
+            </button>
+          </div>
+        </header>
+
+        {/* Customer Main Panel */}
+        <div className="flex-1 flex items-center justify-center p-6 text-center">
+          <div className="bg-white border border-slate-200/80 shadow-xl rounded-2xl p-8 max-w-md w-full animate-in fade-in-50 duration-200">
+            {userProfile && (
+              <div className="flex flex-col items-center mb-6">
+                {userProfile.photoURL ? (
+                  <img 
+                    src={userProfile.photoURL} 
+                    alt="avatar" 
+                    referrerPolicy="no-referrer"
+                    className="w-20 h-20 rounded-full border-4 border-slate-100 shadow-md mb-3" 
+                  />
+                ) : (
+                  <div className="w-20 h-20 rounded-full bg-blue-50 border-4 border-slate-100 shadow-md text-blue-600 flex items-center justify-center text-3xl font-black mb-3 select-none">
+                    {userProfile.displayName ? userProfile.displayName.substring(0, 1).toUpperCase() : 'C'}
+                  </div>
+                )}
+                <h2 className="text-xl font-bold text-slate-800 leading-tight">{userProfile.displayName || 'Customer'}</h2>
+                <p className="text-xs text-slate-400 font-mono mt-0.5">{userProfile.email || 'anonymous-session@backup.local'}</p>
+              </div>
+            )}
+            
+            <div className="bg-emerald-50 text-emerald-800 text-sm font-medium border border-emerald-100 rounded-xl px-5 py-4 mb-6 flex items-start gap-3 text-left">
+              <CheckCircle className="w-5 h-5 text-emerald-600 mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="font-semibold text-emerald-900">Successfully Connected</p>
+                <p className="text-xs text-emerald-700 mt-0.5">you have logged into the app portal.</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-500 leading-relaxed mb-6">
+              Your device synchronization credentials are live. You can close this browser tab, or view your profile settings to edit your account name and manage stored companion backups.
+            </p>
+
+            <button
+              onClick={() => setIsProfileOpen(true)}
+              className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2.5 px-4 rounded-xl transition shadow-lg shadow-blue-500/10 flex items-center justify-center gap-2 text-sm"
+            >
+              <UserIcon className="w-4 h-4" />
+              View Account & Profile Page
+            </button>
+          </div>
         </div>
+
+        {userProfile && (
+          <ProfileModal
+            isOpen={isProfileOpen}
+            onClose={() => setIsProfileOpen(false)}
+            currentUser={currentUser}
+            userProfile={userProfile}
+            onProfileUpdated={(updated) => setUserProfile(updated)}
+            isAdmin={false}
+          />
+        )}
       </div>
     );
   }
@@ -201,23 +251,42 @@ export default function App() {
           {/* Logged in accounts badge */}
           {userProfile && (
             <div id="user-badge" className="flex items-center gap-2.5">
-              <div className="text-right hidden md:block">
+              <div 
+                className="text-right hidden md:block cursor-pointer select-none hover:opacity-80 transition"
+                onClick={() => setIsProfileOpen(true)}
+                title="View Profile Settings"
+              >
                 <div className="text-xs font-semibold text-slate-200">{userProfile.displayName}</div>
                 <div className="text-[9px] text-slate-500 font-mono">{userProfile.email}</div>
               </div>
               
-              {userProfile.photoURL ? (
-                <img 
-                  src={userProfile.photoURL} 
-                  alt="avatar" 
-                  referrerPolicy="no-referrer"
-                  className="w-8 h-8 rounded-full border border-slate-700 select-none pointer-events-none" 
-                />
-              ) : (
-                <div className="w-8 h-8 rounded-full bg-blue-600/15 border border-blue-500/30 text-blue-400 flex items-center justify-center text-xs font-bold leading-none select-none pointer-events-none">
-                  {userProfile.displayName ? userProfile.displayName.substring(0, 1).toUpperCase() : 'M'}
-                </div>
-              )}
+              <div 
+                className="cursor-pointer hover:opacity-80 transition"
+                onClick={() => setIsProfileOpen(true)}
+                title="View Profile Settings"
+              >
+                {userProfile.photoURL ? (
+                  <img 
+                    src={userProfile.photoURL} 
+                    alt="avatar" 
+                    referrerPolicy="no-referrer"
+                    className="w-8 h-8 rounded-full border border-slate-700 select-none" 
+                  />
+                ) : (
+                  <div className="w-8 h-8 rounded-full bg-blue-600/15 border border-blue-500/30 text-blue-400 flex items-center justify-center text-xs font-bold leading-none select-none">
+                    {userProfile.displayName ? userProfile.displayName.substring(0, 1).toUpperCase() : 'M'}
+                  </div>
+                )}
+              </div>
+
+              <button
+                id="profile-btn"
+                onClick={() => setIsProfileOpen(true)}
+                className="p-2 hover:bg-slate-800 text-slate-400 hover:text-blue-400 rounded-lg transition"
+                title="Account Profile & Settings"
+              >
+                <UserIcon className="w-4 h-4" />
+              </button>
 
               <button
                 id="logout-btn"
@@ -274,6 +343,17 @@ export default function App() {
         />
 
       </main>
+
+      {userProfile && (
+        <ProfileModal
+          isOpen={isProfileOpen}
+          onClose={() => setIsProfileOpen(false)}
+          currentUser={currentUser}
+          userProfile={userProfile}
+          onProfileUpdated={(updated) => setUserProfile(updated)}
+          isAdmin={true}
+        />
+      )}
 
       {/* FOOTER */}
       <footer className="py-6 border-t border-slate-900 border-opacity-65 text-center text-xs text-slate-500">

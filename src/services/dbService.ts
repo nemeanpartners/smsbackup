@@ -311,3 +311,52 @@ export async function simulateMacBackupSync(
 
   onProgress({ status: 'Sync Completed Accurately!', percent: 100 });
 }
+
+/**
+ * Permanently delete a user account and all of their Firestore data.
+ */
+export async function deleteUserAccountData(userId: string): Promise<void> {
+  // 1. Delete user document
+  try {
+    await deleteDoc(doc(db, 'users', userId));
+  } catch (err) {
+    console.error('Error deleting user doc:', err);
+  }
+
+  // 2. Delete all backups for this user
+  try {
+    const backupSnapshot = await getDocs(
+      query(collection(db, 'backups'), where('userId', '==', userId))
+    );
+    for (const bDoc of backupSnapshot.docs) {
+      await deleteDoc(bDoc.ref);
+    }
+  } catch (err) {
+    console.error('Error deleting user backups:', err);
+  }
+
+  // 3. Delete all chats for this user
+  try {
+    const chatSnapshot = await getDocs(
+      query(collection(db, 'chats'), where('userId', '==', userId))
+    );
+    for (const cDoc of chatSnapshot.docs) {
+      await deleteDoc(cDoc.ref);
+    }
+  } catch (err) {
+    console.error('Error deleting user chats:', err);
+  }
+
+  // 4. Delete all messages for this user
+  try {
+    const messageSnapshot = await getDocs(
+      query(collection(db, 'messages'), where('userId', '==', userId))
+    );
+    for (const mDoc of messageSnapshot.docs) {
+      await deleteDoc(mDoc.ref);
+    }
+  } catch (err) {
+    console.error('Error deleting user messages:', err);
+  }
+}
+

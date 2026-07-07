@@ -4,10 +4,11 @@ import {
   GoogleAuthProvider, 
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
-  updateProfile 
+  updateProfile,
+  signInAnonymously
 } from 'firebase/auth';
 import { auth } from '../firebase';
-import { Shield, Mail, Lock, User, CheckCircle } from 'lucide-react';
+import { Shield, Mail, Lock, User, CheckCircle, Sparkles } from 'lucide-react';
 
 interface LoginGateProps {
   onSuccess: () => void;
@@ -32,6 +33,20 @@ export function LoginGate({ onSuccess }: LoginGateProps) {
     } catch (err: any) {
       console.error(err);
       setError(err?.message || 'Failed log in with Google provider.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGuestLogin = async () => {
+    setError('');
+    setLoading(true);
+    try {
+      await signInAnonymously(auth);
+      onSuccess();
+    } catch (err: any) {
+      console.error(err);
+      setError(err?.message || 'Failed to sign in as guest.');
     } finally {
       setLoading(false);
     }
@@ -192,16 +207,26 @@ export function LoginGate({ onSuccess }: LoginGateProps) {
           id="google-login-btn"
           onClick={handleGoogleLogin}
           disabled={loading}
-          className="w-full bg-[#0d1321] hover:bg-[#121a2e] border border-slate-700/60 hover:border-slate-600 text-slate-200 font-medium text-sm py-2.5 rounded-lg flex items-center justify-center gap-3 transition-all active:scale-[0.98]"
+          className="w-full bg-[#0d1321] hover:bg-[#121a2e] border border-slate-700/60 hover:border-slate-600 text-slate-200 font-medium text-sm py-2.5 rounded-lg flex items-center justify-center gap-3 transition-all active:scale-[0.98] mb-3"
         >
           {/* SVG Google icon */}
           <svg className="w-4 h-4" viewBox="0 0 24 24">
             <path
               fill="#EA4335"
-              d="M12.24 10.285V14.4h6.887c-.275 1.565-1.88 4.604-6.887 4.604-4.33 0-7.859-3.578-7.859-8s3.53-8 7.859-8c2.46 0 4.105 1.025 5.047 1.926l3.245-3.125C18.252 1.916 15.492 1 12.24 1 6.033 1 1 6.033 1 12.24s5.033 11.24 11.24 11.24c6.478 0 10.793-4.537 10.793-10.98 0-.74-.08-1.302-.176-1.859H12.24z"
+              d="M12.24 10.285V14.4h6.887c-.275 1.565-1.88 4.604-6.887 4.604-4.33 0-7.859-3.578-7.859-8s3.53-8 7.859-8c2.46 0 4.105 1.025 5.047 1.926l3.245-3.125C18.252 1.916 15.492 1 12.24 1 6.033 1 12.24s5.033 11.24 11.24 11.24c6.478 0 10.793-4.537 10.793-10.98 0-.74-.08-1.302-.176-1.859H12.24z"
             />
           </svg>
           Google Authentication
+        </button>
+
+        <button
+          id="guest-login-btn"
+          onClick={handleGuestLogin}
+          disabled={loading}
+          className="w-full bg-[#0d1321]/80 hover:bg-[#121a2e] border border-slate-700/40 hover:border-slate-600 text-slate-300 font-medium text-sm py-2.5 rounded-lg flex items-center justify-center gap-2.5 transition-all active:scale-[0.98]"
+        >
+          <Sparkles className="w-4 h-4 text-amber-400" />
+          Log In as Guest
         </button>
 
         <div className="mt-6 text-center text-xs">
