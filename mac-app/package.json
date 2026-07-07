@@ -1,0 +1,82 @@
+{
+  "name": "messagebackup",
+  "version": "1.0.0",
+  "description": "Beautiful macOS app to convert iPhone Messages (chat.db) to Android SMS backup XML.",
+  "main": "main.js",
+  "author": "Smart Switch SMS",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --mac dmg",
+    "dist:mas-dev": "electron-builder --mac mas-dev",
+    "dist:mas": "electron-builder --mac mas"
+  },
+  "dependencies": {
+    "sql.js": "^1.9.0",
+    "xmlbuilder2": "^4.0.0"
+  },
+  "devDependencies": {
+    "electron": "^30.0.0",
+    "electron-builder": "^24.0.0"
+  },
+  "build": {
+    "appId": "backupmessages.nemeanpartners.mac",
+    "buildVersion": "5",
+    "productName": "MessageBackup",
+    "asar": true,
+    "afterPack": "scripts/after-pack.js",
+    "mac": {
+      "category": "public.app-category.productivity",
+      "icon": "build/MessageBackup.icns",
+      "minimumSystemVersion": "12.0",
+      "target": [
+        "dmg"
+      ],
+      "extendInfo": {
+        "ElectronTeamID": "7ZU4NQ9RVT",
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "mas": {
+      "icon": "build/MessageBackup.icns",
+      "entitlements": "build/entitlements.mas.plist",
+      "entitlementsInherit": "build/entitlements.mas.inherit.plist",
+      "hardenedRuntime": false,
+      "preAutoEntitlements": false,
+      "provisioningProfile": "/Users/christinalucas/Library/MobileDevice/Provisioning Profiles/BackupMessages.provisionprofile"
+    },
+    "masDev": {
+      "icon": "build/MessageBackup.icns",
+      "entitlements": "build/entitlements.mas.plist",
+      "entitlementsInherit": "build/entitlements.mas.inherit.plist",
+      "hardenedRuntime": false,
+      "preAutoEntitlements": false,
+      "provisioningProfile": "/Users/christinalucas/Library/MobileDevice/Provisioning Profiles/BackupMessages.provisionprofile"
+    },
+    "files": [
+      "auth.js",
+      "main.js",
+      "preload.js",
+      "renderer/**/*",
+      "converter.js",
+      "firebase-config.json",
+      "package.json"
+    ],
+    "dmg": {
+      "backgroundColor": "#0b0c10",
+      "iconSize": 128,
+      "contents": [
+        {
+          "x": 130,
+          "y": 220
+        },
+        {
+          "x": 410,
+          "y": 220,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>MessageBackup</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body>
+  <div class="app-root">
+    <div class="gradient-orbit gradient-orbit-1"></div>
+    <div class="gradient-orbit gradient-orbit-2"></div>
+
+    <header class="app-header">
+      <div class="logo-circle">
+        <span>↔︎</span>
+      </div>
+      <div class="title-block">
+        <h1>MessageBackup</h1>
+        <p>Extract and export iPhone Messages conversation history locally on your Mac.</p>
+      </div>
+      <div class="account-panel">
+        <div class="account-copy">
+          <div class="account-topline">
+            <span id="accountModeBadge" class="account-badge">Guest</span>
+            <span id="accountEmail" class="account-email">Loading account…</span>
+          </div>
+          <div id="accountExports" class="account-meta">0 exports recorded</div>
+        </div>
+        <button id="logoutButton" class="back-arrow" aria-label="Sign out">⇥</button>
+      </div>
+    </header>
+
+      <main class="card">
+        <section class="intro">
+          <h2>Before you start</h2>
+          <p class="hint">The App Store version uses the standard macOS file picker. You choose the files, and the app only reads what you select.</p>
+          <ol class="intro-list">
+            <li>Locate the <code>chat.db</code> file you want to convert.</li>
+            <li>If macOS protects the original Messages database, copy <code>chat.db</code> to another folder first.</li>
+            <li>Select that database in this app and load contacts.</li>
+            <li>Select a contact.</li>
+            <li>The app exports XML locally.</li>
+            <li>Nothing is uploaded by this app.</li>
+          </ol>
+        </section>
+
+        <section class="step">
+          <h2>1. Find your Messages database</h2>
+          <p class="hint">Choose the exact <code>chat.db</code> file you want to convert.</p>
+          <div class="field-row">
+            <button id="pickChatDb" class="btn primary">Browse…</button>
+            <span id="chatDbPath" class="path-label">No file selected</span>
+          </div>
+        </section>
+
+        <section class="step">
+          <h2>2. Load contacts</h2>
+          <p class="hint">This reads the selected <code>chat.db</code> snapshot and lists your contacts.</p>
+          <div class="field-row">
+            <button id="loadContactsButton" class="btn">Load contacts</button>
+            <span class="path-label">Ready after the database is selected.</span>
+          </div>
+        </section>
+
+        <section class="step preview-step">
+          <h2>3. Choose a contact and preview</h2>
+          <p class="hint">Select a contact to view the conversation before exporting.</p>
+          <div class="preview-controls">
+            <select id="contactSelect" class="contact-select">
+              <option value="">Select a contact…</option>
+            </select>
+          </div>
+          <div class="thread-shell">
+            <div id="threadToggle" class="thread-toggle">
+              <span id="threadToggleLabel">Conversation table</span>
+              <span id="threadToggleIcon">▾</span>
+            </div>
+            <div id="threadContainer" class="thread-container">
+              <div class="thread-placeholder">Pick a contact to view your message history.</div>
+            </div>
+          </div>
+        </section>
+
+        <section class="step">
+          <h2>4. Extract specific conversation history</h2>
+          <p class="hint">Choose your own number, confirm the selected contact number, then export only that one conversation.</p>
+          <div class="extract-grid">
+            <div class="extract-field">
+              <label for="myNumberInput">Your phone number</label>
+              <input id="myNumberInput" class="contact-input" type="text" placeholder="e.g. +61412345678" />
+            </div>
+            <div class="extract-field">
+              <label for="selectedContactNumber">Other person's number</label>
+              <input id="selectedContactNumber" class="contact-input" type="text" readonly value="No contact selected yet" />
+            </div>
+          </div>
+        </section>
+
+        <section class="step">
+          <h2>5. Save XML for this contact</h2>
+          <p class="hint">Creates an XML file for just the selected conversation.</p>
+          <div class="field-row">
+            <button id="pickOutput" class="btn">Choose location…</button>
+            <span id="outputPath" class="path-label">Defaults to Desktop/sms_export.xml</span>
+          </div>
+        </section>
+
+        <section class="step action-row">
+          <button id="convertButton" class="btn accent">Extract Conversation XML</button>
+          <div id="status" class="status-label">Waiting to begin…</div>
+        </section>
+      </main>
+
+    <footer class="app-footer">
+      <span>All conversion happens locally on your Mac. Nothing leaves your machine.</span>
+    </footer>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+
+</html>
