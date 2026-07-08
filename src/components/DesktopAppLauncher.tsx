@@ -1,6 +1,14 @@
 import React, { useState, useRef } from 'react';
 import { Laptop, FolderOpen, Loader2, CheckCircle2, AlertCircle, FileText, Settings, Sparkles, ExternalLink } from 'lucide-react';
 
+declare global {
+  interface Window {
+    electronAPI?: {
+      openLocalWorkspace?: () => Promise<{ ok: boolean; error?: string }>;
+    };
+    electron?: unknown;
+  }
+}
 interface DesktopAppLauncherProps {
   theme?: 'light' | 'dark';
   userId: string;
@@ -64,13 +72,33 @@ export default function DesktopAppLauncher({ theme = 'dark', userId }: DesktopAp
 
     // CODER DIRECTIVE: You can add actual system execution hooks here.
     // Example: Launch native helper or check if running within the Mac app wrapper
-    const isRunningInElectron = typeof window !== 'undefined' && 
-      (window.navigator.userAgent.toLowerCase().includes('electron') || (window as any).electron);
+    const isRunningInElectron = typeof window !== 'undefined' &&
+      (window.navigator.userAgent.toLowerCase().includes('electron') || Boolean(window.electronAPI?.openLocalWorkspace) || Boolean(window.electron));
 
     if (isRunningInElectron) {
       appendLog('Detected Native Mac App Container environment!');
-      setStatus('IPC handshake successful. Requesting chat.db read permissions...');
-      await new Promise((r) => setTimeout(r, 600));
+      setStatus('IPC handshake successful. Opening local MessageBackup export workspace...');
+      await new Promise((r) => setTimeout(r, 400));
+
+      try {
+        const result = await window.electronAPI?.openLocalWorkspace?.();
+        if (!result?.ok) {
+          throw new Error(result?.error || 'Could not open the local desktop workspace.');
+        }
+
+        appendLog('Electron bridge responded successfully.');
+        appendLog('Local MessageBackup export workspace opened.');
+        setStatus('Complete');
+        setCompleted(true);
+        setLoading(false);
+        return;
+      } catch (err: any) {
+        appendLog(`Desktop bridge error: ${err?.message || String(err)}`);
+        setError(err?.message || 'Local desktop workspace could not be opened.');
+        setStatus('Desktop launch failed');
+        setLoading(false);
+        return;
+      }
     } else {
       appendLog('Detected Standard Web Browser. Attempting deep-link fallback (smsbackup://open)...');
       
