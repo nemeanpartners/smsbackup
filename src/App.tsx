@@ -10,6 +10,7 @@ import { TokenCard } from './components/TokenCard';
 import { BackupGrid } from './components/BackupGrid';
 import { ChatExplorer } from './components/ChatExplorer';
 import { ProfileModal } from './components/ProfileModal';
+import DesktopAppLauncher from './components/DesktopAppLauncher';
 import { Shield, LogOut, CheckCircle, Smartphone, RefreshCw, AlertTriangle, User as UserIcon } from 'lucide-react';
 
 export default function App() {
@@ -22,6 +23,9 @@ export default function App() {
   const [dataLoading, setDataLoading] = useState(false);
   const [connectionVerified, setConnectionVerified] = useState<boolean | null>(null);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isOfflineSandbox, setIsOfflineSandbox] = useState<boolean>(() => {
+    return localStorage.getItem('is_offline_sandbox') === 'true';
+  });
 
   // 1. Critical Base Connectivity check on boot
   useEffect(() => {
@@ -44,6 +48,35 @@ export default function App() {
 
   // 2. Auth State Change Listener
   useEffect(() => {
+    if (isOfflineSandbox) {
+      const mockUser = {
+        uid: 'offline-guest',
+        email: 'christinalucas1216@gmail.com', // Admin login mock
+        displayName: 'Offline Admin',
+        photoURL: ''
+      } as any;
+      setCurrentUser(mockUser);
+      
+      const loadOfflineProfile = async () => {
+        try {
+          const profile = await ensureUserProfile(
+            mockUser.uid,
+            mockUser.email,
+            mockUser.displayName,
+            ''
+          );
+          if (profile) {
+            setUserProfile(profile);
+          }
+        } catch (err) {
+          console.error('Failed to load offline profile', err);
+        }
+      };
+      loadOfflineProfile();
+      setAuthLoading(false);
+      return;
+    }
+
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setAuthLoading(true);
       if (user) {
@@ -71,7 +104,7 @@ export default function App() {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [isOfflineSandbox]);
 
   // 3. Load / Refresh backup logs
   const loadBackups = async (uid: string, isAdmin: boolean) => {
@@ -100,10 +133,24 @@ export default function App() {
 
   const handleLogout = async () => {
     try {
-      await signOut(auth);
+      if (isOfflineSandbox) {
+        setIsOfflineSandbox(false);
+        localStorage.removeItem('is_offline_sandbox');
+        setCurrentUser(null);
+        setUserProfile(null);
+        setBackups([]);
+        setSelectedBackupId(null);
+      } else {
+        await signOut(auth);
+      }
     } catch (err) {
       console.error('Sign Out failed', err);
     }
+  };
+
+  const handleOfflineBypass = () => {
+    localStorage.setItem('is_offline_sandbox', 'true');
+    setIsOfflineSandbox(true);
   };
 
   if (authLoading) {
@@ -122,6 +169,7 @@ export default function App() {
         onSuccess={() => {
           // Success handled via listener
         }} 
+        onOfflineBypass={handleOfflineBypass}
       />
     );
   }
@@ -159,46 +207,52 @@ export default function App() {
         </header>
 
         {/* Customer Main Panel */}
-        <div className="flex-1 flex items-center justify-center p-6 text-center">
-          <div className="bg-white border border-slate-200/80 shadow-xl rounded-2xl p-8 max-w-md w-full animate-in fade-in-50 duration-200">
-            {userProfile && (
-              <div className="flex flex-col items-center mb-6">
-                {userProfile.photoURL ? (
-                  <img 
-                    src={userProfile.photoURL} 
-                    alt="avatar" 
-                    referrerPolicy="no-referrer"
-                    className="w-20 h-20 rounded-full border-4 border-slate-100 shadow-md mb-3" 
-                  />
-                ) : (
-                  <div className="w-20 h-20 rounded-full bg-blue-50 border-4 border-slate-100 shadow-md text-blue-600 flex items-center justify-center text-3xl font-black mb-3 select-none">
-                    {userProfile.displayName ? userProfile.displayName.substring(0, 1).toUpperCase() : 'C'}
-                  </div>
-                )}
-                <h2 className="text-xl font-bold text-slate-800 leading-tight">{userProfile.displayName || 'Customer'}</h2>
-                <p className="text-xs text-slate-400 font-mono mt-0.5">{userProfile.email || 'anonymous-session@backup.local'}</p>
+        <div className="flex-1 max-w-5xl w-full mx-auto p-6 flex flex-col items-center justify-center space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-6 w-full items-start">
+            <div className="md:col-span-5 bg-white border border-slate-200/80 shadow-xl rounded-2xl p-6 text-center">
+              {userProfile && (
+                <div className="flex flex-col items-center mb-6">
+                  {userProfile.photoURL ? (
+                    <img 
+                      src={userProfile.photoURL} 
+                      alt="avatar" 
+                      referrerPolicy="no-referrer"
+                      className="w-16 h-16 rounded-full border-4 border-slate-100 shadow-md mb-3" 
+                    />
+                  ) : (
+                    <div className="w-16 h-16 rounded-full bg-blue-50 border-4 border-slate-100 shadow-md text-blue-600 flex items-center justify-center text-2xl font-black mb-3 select-none">
+                      {userProfile.displayName ? userProfile.displayName.substring(0, 1).toUpperCase() : 'C'}
+                    </div>
+                  )}
+                  <h2 className="text-lg font-bold text-slate-800 leading-tight">{userProfile.displayName || 'Customer'}</h2>
+                  <p className="text-[11px] text-slate-400 font-mono mt-0.5">{userProfile.email || 'anonymous-session@backup.local'}</p>
+                </div>
+              )}
+              
+              <div className="bg-emerald-50 text-emerald-800 text-xs font-medium border border-emerald-100 rounded-xl px-4 py-3 mb-5 flex items-start gap-2.5 text-left">
+                <CheckCircle className="w-4 h-4 text-emerald-600 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="font-semibold text-emerald-900 text-xs">Successfully Connected</p>
+                  <p className="text-[10px] text-emerald-700 mt-0.5">You have authenticated this session.</p>
+                </div>
               </div>
-            )}
-            
-            <div className="bg-emerald-50 text-emerald-800 text-sm font-medium border border-emerald-100 rounded-xl px-5 py-4 mb-6 flex items-start gap-3 text-left">
-              <CheckCircle className="w-5 h-5 text-emerald-600 mt-0.5 flex-shrink-0" />
-              <div>
-                <p className="font-semibold text-emerald-900">Successfully Connected</p>
-                <p className="text-xs text-emerald-700 mt-0.5">you have logged into the app portal.</p>
-              </div>
+
+              <p className="text-xs text-slate-500 leading-relaxed mb-6">
+                Your device synchronization credentials are live. You can close this browser tab, or view your profile settings to edit your account name and manage stored companion backups.
+              </p>
+
+              <button
+                onClick={() => setIsProfileOpen(true)}
+                className="w-full bg-slate-900 hover:bg-slate-800 text-white font-semibold py-2 px-4 rounded-xl transition shadow-lg shadow-slate-900/10 flex items-center justify-center gap-2 text-xs"
+              >
+                <UserIcon className="w-3.5 h-3.5" />
+                View Account & Profile Page
+              </button>
             </div>
 
-            <p className="text-xs text-slate-500 leading-relaxed mb-6">
-              Your device synchronization credentials are live. You can close this browser tab, or view your profile settings to edit your account name and manage stored companion backups.
-            </p>
-
-            <button
-              onClick={() => setIsProfileOpen(true)}
-              className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2.5 px-4 rounded-xl transition shadow-lg shadow-blue-500/10 flex items-center justify-center gap-2 text-sm"
-            >
-              <UserIcon className="w-4 h-4" />
-              View Account & Profile Page
-            </button>
+            <div className="md:col-span-7">
+              <DesktopAppLauncher theme="light" userId={currentUser.uid} />
+            </div>
           </div>
         </div>
 
@@ -316,6 +370,9 @@ export default function App() {
         <StatsRow 
           backups={backups} 
         />
+
+        {/* Desktop App Launcher */}
+        <DesktopAppLauncher theme="dark" userId={currentUser.uid} />
 
         {/* Access tokens and instructions */}
         {userProfile && (

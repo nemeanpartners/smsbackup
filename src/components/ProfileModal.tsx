@@ -136,7 +136,6 @@ export function ProfileModal({
             </div>
             <div>
               <h2 className={`font-semibold ${textPrimary} text-lg`}>Account Profile</h2>
-              <p className="text-xs text-slate-400 font-mono">ID: {currentUser.uid.substring(0, 12)}...</p>
             </div>
           </div>
           <button 

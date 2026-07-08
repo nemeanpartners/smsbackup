@@ -12,9 +12,10 @@ import { Shield, Mail, Lock, User, CheckCircle, Sparkles } from 'lucide-react';
 
 interface LoginGateProps {
   onSuccess: () => void;
+  onOfflineBypass: () => void;
 }
 
-export function LoginGate({ onSuccess }: LoginGateProps) {
+export function LoginGate({ onSuccess, onOfflineBypass }: LoginGateProps) {
   const [isSignUp, setIsSignUp] = useState(false);
   const [isAdminPortal, setIsAdminPortal] = useState(false);
   const [email, setEmail] = useState('');
@@ -223,13 +224,28 @@ export function LoginGate({ onSuccess }: LoginGateProps) {
           id="guest-login-btn"
           onClick={handleGuestLogin}
           disabled={loading}
-          className="w-full bg-[#0d1321]/80 hover:bg-[#121a2e] border border-slate-700/40 hover:border-slate-600 text-slate-300 font-medium text-sm py-2.5 rounded-lg flex items-center justify-center gap-2.5 transition-all active:scale-[0.98]"
+          className="w-full bg-[#0d1321]/80 hover:bg-[#121a2e] border border-slate-700/40 hover:border-slate-600 text-slate-300 font-medium text-sm py-2.5 rounded-lg flex items-center justify-center gap-2.5 transition-all active:scale-[0.98] mb-3"
         >
           <Sparkles className="w-4 h-4 text-amber-400" />
           Log In as Guest
         </button>
 
-        <div className="mt-6 text-center text-xs">
+        {/* Local Sandbox Mode Fallback */}
+        <div className="mt-4 p-3 bg-blue-950/20 border border-blue-900/30 rounded-xl">
+          <p className="text-[11px] text-slate-400 text-center leading-relaxed mb-2 font-sans">
+            Experiencing iframe network blocks or Firebase connection errors?
+          </p>
+          <button
+            id="offline-sandbox-btn"
+            type="button"
+            onClick={onOfflineBypass}
+            className="w-full bg-blue-600/10 hover:bg-blue-600/25 border border-blue-500/30 text-blue-300 font-medium text-xs py-2 rounded-lg transition-all active:scale-[0.98]"
+          >
+            Launch Local Sandbox Mode
+          </button>
+        </div>
+
+        <div className="mt-5 text-center text-xs">
           <span className="text-slate-500">
             {isSignUp ? 'Already registered on Message Backup?' : "Don't have an account yet?"}
           </span>{' '}
@@ -243,7 +259,7 @@ export function LoginGate({ onSuccess }: LoginGateProps) {
           </button>
         </div>
 
-        <div className="mt-8 border-t border-slate-800/80 pt-4 flex items-center gap-2 justify-center text-[11px] text-slate-500">
+        <div className="mt-6 border-t border-slate-800/80 pt-3 flex items-center gap-2 justify-center text-[11px] text-slate-500">
           <CheckCircle className="w-3.5 h-3.5 text-blue-500" />
           <span>Secured globally by Google Firebase Firestore</span>
         </div>
