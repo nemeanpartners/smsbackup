@@ -27,6 +27,15 @@ export default function App() {
     return localStorage.getItem('is_offline_sandbox') === 'true';
   });
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('desktopSignOut') === '1') {
+      void signOut(auth).catch((error) => {
+        console.warn('Desktop sign-out sync failed:', error);
+      });
+    }
+  }, []);
+
   // 1. Critical Base Connectivity check on boot
   useEffect(() => {
     async function testConnection() {

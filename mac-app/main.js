@@ -1,11 +1,100 @@
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
+const http = require('http');
 const path = require('path');
 const os = require('os');
+const fs = require('fs');
 const { convertIphoneSmsToXml, convertThreadToXml, listContacts, fetchThreadForHandle } = require('./converter');
 const { createAuthService } = require('./auth');
 
 let mainWindow;
+let workspaceWindow;
 let authService;
+let bridgeLogPath;
+let portalServer;
+let portalBaseUrl;
+
+function writeBridgeLog(message) {
+  const line = `[${new Date().toISOString()}] ${message}\n`;
+  try {
+    if (bridgeLogPath) {
+      fs.appendFileSync(bridgeLogPath, line, 'utf8');
+    }
+  } catch {
+    // Ignore logging failures.
+  }
+  console.log(message);
+}
+
+function getPortalDistDir() {
+  return path.join(__dirname, 'web-portal-dist');
+}
+
+function getContentType(filePath) {
+  switch (path.extname(filePath).toLowerCase()) {
+    case '.html':
+      return 'text/html; charset=utf-8';
+    case '.js':
+      return 'application/javascript; charset=utf-8';
+    case '.css':
+      return 'text/css; charset=utf-8';
+    case '.json':
+      return 'application/json; charset=utf-8';
+    case '.svg':
+      return 'image/svg+xml';
+    case '.png':
+      return 'image/png';
+    case '.jpg':
+    case '.jpeg':
+      return 'image/jpeg';
+    case '.woff':
+      return 'font/woff';
+    case '.woff2':
+      return 'font/woff2';
+    default:
+      return 'application/octet-stream';
+  }
+}
+
+async function startPortalServer() {
+  if (portalServer && portalBaseUrl) {
+    return portalBaseUrl;
+  }
+
+  const distDir = getPortalDistDir();
+  const indexPath = path.join(distDir, 'index.html');
+  if (!fs.existsSync(indexPath)) {
+    throw new Error(`Embedded web portal is missing at ${indexPath}`);
+  }
+
+  portalServer = http.createServer((request, response) => {
+    try {
+      const requestUrl = new URL(request.url || '/', 'http://localhost');
+      const cleanPath = decodeURIComponent(requestUrl.pathname === '/' ? '/index.html' : requestUrl.pathname);
+      const candidatePath = path.normalize(path.join(distDir, cleanPath));
+      const safePath = candidatePath.startsWith(distDir) && fs.existsSync(candidatePath)
+        ? candidatePath
+        : indexPath;
+
+      response.writeHead(200, { 'Content-Type': getContentType(safePath), 'Cache-Control': 'no-store' });
+      response.end(fs.readFileSync(safePath));
+    } catch (error) {
+      response.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
+      response.end(error.message || 'Failed to serve embedded portal.');
+    }
+  });
+
+  await new Promise((resolve, reject) => {
+    portalServer.once('error', reject);
+    portalServer.listen(0, '127.0.0.1', () => {
+      const address = portalServer.address();
+      portalBaseUrl = `http://localhost:${address.port}`;
+      writeBridgeLog(`Embedded portal server listening at ${portalBaseUrl}`);
+      resolve();
+    });
+  });
+
+  return portalBaseUrl;
+}
 
 function getSecurityScopedDialogOptions() {
   if (!process.mas) {
@@ -32,34 +121,145 @@ async function withSecurityScopedAccess(bookmark, callback) {
   }
 }
 
+async function loadNativeApp() {
+  if (!workspaceWindow) return;
+  await workspaceWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
+}
+
+async function loadHostedLogin(options = {}) {
+  if (!mainWindow) return;
+  const baseUrl = await startPortalServer();
+  const url = new URL(baseUrl);
+  if (options.signOutFirst) {
+    url.searchParams.set('desktopSignOut', '1');
+  }
+  await mainWindow.loadURL(url.toString());
+}
+
+function attachWindowOpenHandler(win, parentWindow = null) {
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    if (url.startsWith('https://accounts.google.com') || url.startsWith('https://apis.google.com')) {
+      return {
+        action: 'allow',
+        overrideBrowserWindowOptions: {
+          width: 520,
+          height: 720,
+          modal: true,
+          parent: parentWindow || win,
+          webPreferences: {
+            contextIsolation: true,
+            nodeIntegration: false,
+            partition: 'persist:messagebackup-auth'
+          }
+        }
+      };
+    }
+
+    shell.openExternal(url);
+    return { action: 'deny' };
+  });
+}
+
+function notifyAuthState(state) {
+  const windows = [mainWindow, workspaceWindow].filter(Boolean);
+  for (const win of windows) {
+    if (!win.isDestroyed()) {
+      win.webContents.send('auth-state-updated', state);
+    }
+  }
+}
+
+async function showAppropriateView() {
+  await loadHostedLogin();
+}
+
+function createWorkspaceWindow() {
+  if (workspaceWindow && !workspaceWindow.isDestroyed()) {
+    writeBridgeLog('Workspace window already exists, focusing existing window.');
+    workspaceWindow.focus();
+    return workspaceWindow;
+  }
+
+  workspaceWindow = new BrowserWindow({
+    width: 980,
+    height: 760,
+    resizable: true,
+    show: false,
+    title: 'MessageBackup Export Tools',
+    backgroundColor: '#05060a',
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      partition: 'persist:messagebackup-auth'
+    }
+  });
+
+  workspaceWindow.on('closed', () => {
+    workspaceWindow = null;
+  });
+
+  workspaceWindow.once('ready-to-show', () => {
+    if (workspaceWindow && !workspaceWindow.isDestroyed()) {
+      writeBridgeLog('Workspace window ready to show.');
+      workspaceWindow.show();
+      workspaceWindow.focus();
+    }
+  });
+
+  workspaceWindow.webContents.on('did-fail-load', (_event, errorCode, errorDescription) => {
+    writeBridgeLog(`Workspace window failed to load: ${errorCode} ${errorDescription}`);
+  });
+
+  return workspaceWindow;
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 900,
-    height: 600,
-    resizable: false,
+    width: 1420,
+    height: 920,
+    minWidth: 1180,
+    minHeight: 760,
+    resizable: true,
     title: 'MessageBackup',
     backgroundColor: '#05060a',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
-      nodeIntegration: false
+      nodeIntegration: false,
+      partition: 'persist:messagebackup-auth'
     }
   });
 
-  mainWindow.loadFile(path.join(__dirname, 'renderer', 'welcome.html'));
+  attachWindowOpenHandler(mainWindow, mainWindow);
+
+  void showAppropriateView();
 
   mainWindow.on('closed', () => {
+    if (workspaceWindow && !workspaceWindow.isDestroyed()) {
+      workspaceWindow.close();
+    }
     mainWindow = null;
   });
 }
 
 app.whenReady().then(() => {
+  bridgeLogPath = path.join(app.getPath('userData'), 'desktop-bridge.log');
+  writeBridgeLog('Application ready.');
   authService = createAuthService({
     userDataPath: app.getPath('userData'),
     configPath: path.join(__dirname, 'firebase-config.json')
   });
 
   createWindow();
+});
+
+app.on('before-quit', () => {
+  if (portalServer) {
+    portalServer.close();
+    portalServer = null;
+    portalBaseUrl = null;
+  }
 });
 
 app.on('window-all-closed', () => {
@@ -171,8 +371,101 @@ ipcMain.handle('auth-continue-guest', async () => {
 ipcMain.handle('auth-sign-out', async () => {
   try {
     const state = await authService.signOut();
+    if (workspaceWindow && !workspaceWindow.isDestroyed()) {
+      workspaceWindow.close();
+    }
+    await loadHostedLogin({ signOutFirst: true });
+    notifyAuthState(state);
     return { ok: true, state };
   } catch (err) {
+    return { ok: false, error: err.message || String(err) };
+  }
+});
+
+ipcMain.handle('auth-show-hosted-login', async (event, options = {}) => {
+  try {
+    await loadHostedLogin(options);
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err.message || String(err) };
+  }
+});
+
+ipcMain.handle('auth-adopt-remote-session', async (event, payload) => {
+  try {
+    writeBridgeLog(`Adopting hosted session for user ${payload?.userId || 'unknown'}.`);
+    const state = await authService.adoptRemoteSession(payload);
+    notifyAuthState(state);
+    return { ok: true, state };
+  } catch (err) {
+    writeBridgeLog(`Hosted session adoption failed: ${err.message || String(err)}`);
+    return { ok: false, error: err.message || String(err) };
+  }
+});
+
+ipcMain.handle('auth-open-local-workspace', async () => {
+  try {
+    const state = await authService.getAuthState();
+    writeBridgeLog(`Open local workspace requested. Authenticated=${state.authenticated ? 'yes' : 'no'}`);
+    if (!state.authenticated) {
+      writeBridgeLog('Hosted auth handoff is not ready yet. Opening local workspace anyway.');
+    }
+
+    const windowRef = createWorkspaceWindow();
+    await loadNativeApp();
+    notifyAuthState(state);
+    if (windowRef && !windowRef.isDestroyed()) {
+      if (windowRef.isVisible()) {
+        windowRef.focus();
+      }
+    }
+    writeBridgeLog('Local workspace opened successfully.');
+    return { ok: true, state };
+  } catch (err) {
+    writeBridgeLog(`auth-open-local-workspace failed: ${err.message || String(err)}`);
+    return { ok: false, error: err.message || String(err) };
+  }
+});
+
+ipcMain.handle('auth-force-open-local-workspace', async () => {
+  try {
+    writeBridgeLog('Force-open local workspace requested.');
+    const state = await authService.getAuthState().catch(() => ({
+      authenticated: false,
+      authAvailable: true,
+      mode: 'guest',
+      email: 'Guest account',
+      userId: 'guest-local'
+    }));
+
+    const windowRef = createWorkspaceWindow();
+    await loadNativeApp();
+    notifyAuthState(state);
+    if (windowRef && !windowRef.isDestroyed() && windowRef.isVisible()) {
+      windowRef.focus();
+    }
+    writeBridgeLog('Force-open local workspace completed.');
+    return { ok: true, state };
+  } catch (err) {
+    writeBridgeLog(`Force-open local workspace failed: ${err.message || String(err)}`);
+    return { ok: false, error: err.message || String(err) };
+  }
+});
+
+ipcMain.handle('auth-open-local-workspace-with-session', async (event, payload) => {
+  try {
+    writeBridgeLog(`Atomic open requested for hosted user ${payload?.userId || 'unknown'}.`);
+    const state = await authService.adoptRemoteSession(payload);
+    const windowRef = createWorkspaceWindow();
+    await loadNativeApp();
+    notifyAuthState(state);
+    if (windowRef && !windowRef.isDestroyed() && windowRef.isVisible()) {
+      windowRef.focus();
+    }
+    writeBridgeLog('Atomic open completed successfully.');
+    return { ok: true, state };
+  } catch (err) {
+    writeBridgeLog(`Atomic open failed: ${err.message || String(err)}`);
     return { ok: false, error: err.message || String(err) };
   }
 });
@@ -180,6 +473,7 @@ ipcMain.handle('auth-sign-out', async () => {
 ipcMain.handle('auth-record-export', async () => {
   try {
     const state = await authService.recordExport();
+    notifyAuthState(state);
     return { ok: true, state };
   } catch (err) {
     return { ok: false, error: err.message || String(err) };

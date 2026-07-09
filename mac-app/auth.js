@@ -375,6 +375,34 @@ class AuthService {
     return this.getAuthState();
   }
 
+  async adoptRemoteSession(payload) {
+    const email = String(payload?.email || '').trim();
+    const userId = String(payload?.userId || '').trim();
+    const idToken = String(payload?.idToken || '').trim();
+    const refreshToken = String(payload?.refreshToken || '').trim();
+
+    if (!userId || !idToken || !refreshToken) {
+      throw new Error('Hosted login did not provide a usable session.');
+    }
+
+    const session = {
+      mode: 'firebase',
+      email: email || 'user@messagebackup.local',
+      userId,
+      idToken,
+      refreshToken,
+      expiresAt: Date.now() + (Number(payload?.expiresIn || 3600) * 1000),
+      exportCount: 0,
+      displayName: String(payload?.displayName || '').trim(),
+      photoURL: String(payload?.photoURL || '').trim(),
+      isAnonymous: !!payload?.isAnonymous
+    };
+
+    session.exportCount = await this.ensureUserProfile(session);
+    this.saveSession(session);
+    return this.getAuthState();
+  }
+
   async recordExport() {
     if (!this.session) {
       throw new Error('Sign in or continue as guest before exporting.');

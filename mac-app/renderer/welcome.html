@@ -18,49 +18,22 @@
           <div class="welcome-icon">↔︎</div>
           <div>
             <h1>MessageBackup</h1>
-            <p>Secure desktop access</p>
+            <p>Hosted sign-in</p>
           </div>
         </div>
 
-        <h2>Sign in before you export</h2>
-        <p>Users can create an account, return later, and see how many XML exports they have made from this Mac app.</p>
-
-        <ul class="feature-list">
-          <li>Email and password account creation</li>
-          <li>Guest mode for quick local-only access</li>
-          <li>Per-user export count shown inside the app</li>
-          <li>Actual message conversion still runs locally on your Mac</li>
-        </ul>
+        <h2>Open the secure web login</h2>
+        <p>The desktop app now uses your hosted login page. After authentication, MessageBackup will return you to the native Mac app automatically.</p>
       </aside>
 
       <section class="auth-card">
         <div class="auth-card-header">
-          <h2>Account access</h2>
-          <p>Create an account or sign in to open MessageBackup.</p>
+          <h2>Redirecting…</h2>
+          <p>If the hosted page does not open automatically, use the button below.</p>
         </div>
 
-        <div id="authConfigNotice" class="auth-notice hidden"></div>
-
-        <form id="authForm" class="auth-form">
-          <label class="auth-label" for="authEmail">Email</label>
-          <input id="authEmail" class="contact-input auth-input" type="email" autocomplete="email" placeholder="you@example.com" />
-
-          <label class="auth-label" for="authPassword">Password</label>
-          <input id="authPassword" class="contact-input auth-input" type="password" autocomplete="current-password" placeholder="At least 6 characters" />
-
-          <div class="auth-actions">
-            <button id="signInButton" type="submit" class="btn primary">Sign in</button>
-            <button id="signUpButton" type="button" class="btn">Create account</button>
-          </div>
-        </form>
-
-        <div class="auth-divider">
-          <span>or</span>
-        </div>
-
-        <button id="guestButton" class="btn accent auth-guest-button" type="button">Continue as guest</button>
-
-        <div id="authStatus" class="status-label">Waiting for sign-in…</div>
+        <button id="guestButton" class="btn primary auth-guest-button" type="button">Open hosted login</button>
+        <div id="authStatus" class="status-label">Waiting to open the hosted dashboard…</div>
       </section>
     </section>
   </div>

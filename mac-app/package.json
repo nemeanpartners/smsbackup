@@ -6,12 +6,14 @@
   "author": "Smart Switch SMS",
   "license": "MIT",
   "scripts": {
-    "start": "electron .",
-    "dist": "electron-builder --mac dmg",
-    "dist:mas-dev": "electron-builder --mac mas-dev",
-    "dist:mas": "electron-builder --mac mas"
+    "sync:web": "node scripts/sync-web-portal.js",
+    "start": "node scripts/sync-web-portal.js && electron .",
+    "dist": "node scripts/sync-web-portal.js && electron-builder --mac dmg",
+    "dist:mas-dev": "node scripts/sync-web-portal.js && electron-builder --mac mas-dev",
+    "dist:mas": "node scripts/sync-web-portal.js && electron-builder --mac mas"
   },
   "dependencies": {
+    "firebase": "^12.1.0",
     "sql.js": "^1.9.0",
     "xmlbuilder2": "^4.0.0"
   },
@@ -58,6 +60,7 @@
       "main.js",
       "preload.js",
       "renderer/**/*",
+      "web-portal-dist/**/*",
       "converter.js",
       "firebase-config.json",
       "package.json"

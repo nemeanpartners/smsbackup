@@ -15,6 +15,7 @@ const logoutButton = document.getElementById('logoutButton');
 const accountModeBadge = document.getElementById('accountModeBadge');
 const accountEmail = document.getElementById('accountEmail');
 const accountExports = document.getElementById('accountExports');
+const openLoginButton = document.getElementById('openLoginButton');
 
 const authForm = document.getElementById('authForm');
 const authEmail = document.getElementById('authEmail');
@@ -57,6 +58,7 @@ function setAuthBusy(isBusy) {
   if (signInButton) signInButton.disabled = isBusy;
   if (signUpButton) signUpButton.disabled = isBusy;
   if (guestButton) guestButton.disabled = isBusy;
+  if (openLoginButton) openLoginButton.disabled = isBusy;
 }
 
 function getSelectedHandle() {
@@ -87,120 +89,80 @@ function updateAccountPanel(state) {
   accountExports.textContent = `${exportCount} export${exportCount === 1 ? '' : 's'} recorded`;
 }
 
-async function hydrateAuthState() {
-  return window.electronAPI.getAuthState();
+function updateAuthGate(state) {
+  const authenticated = Boolean(state?.authenticated);
+  if (authenticated) {
+    setAuthStatus('Connected. Local export tools are ready.', 'success');
+    return;
+  }
+
+  const fallbackMessage = state?.error || 'Local export tools are visible now. Use the popup only if you want account sync.';
+  setAuthStatus(fallbackMessage, state?.error ? 'error' : '');
 }
 
-async function routeAuthenticatedUser() {
-  const state = await hydrateAuthState();
-
-  if (authForm) {
-    if (state.authenticated) {
-      window.location.href = 'index.html';
-      return;
-    }
-
-    if (!state.authAvailable && authConfigNotice) {
-      authConfigNotice.classList.remove('hidden');
-      authConfigNotice.textContent = 'Cloud account login is unavailable until Firebase config is present. Guest mode still works.';
-    }
-
-    if (!state.authAvailable) {
-      if (signInButton) signInButton.disabled = true;
-      if (signUpButton) signUpButton.disabled = true;
-    }
-
-    if (state.error) {
-      setAuthStatus(state.error, 'error');
-    }
-
-    return;
-  }
-
-  if (!state.authenticated) {
-    window.location.href = 'welcome.html';
-    return;
-  }
-
-  updateAccountPanel(state);
-}
-
-async function handleAuthAction(action) {
-  const email = authEmail ? authEmail.value.trim() : '';
-  const password = authPassword ? authPassword.value : '';
-
-  if (!email) {
-    setAuthStatus('Enter your email address first.', 'error');
-    return;
-  }
-
-  if (password.length < 6) {
-    setAuthStatus('Password must be at least 6 characters long.', 'error');
-    return;
-  }
-
+async function openHostedLogin(message = 'Opening secure login…') {
   setAuthBusy(true);
-  setAuthStatus(action === 'signup' ? 'Creating account…' : 'Signing in…');
-
+  setAuthStatus(message);
   try {
-    const result = action === 'signup'
-      ? await window.electronAPI.signUp(email, password)
-      : await window.electronAPI.signIn(email, password);
-
+    const result = await window.electronAPI.showHostedLogin();
     if (!result.ok) {
-      setAuthStatus(result.error || 'Authentication failed.', 'error');
-      return;
+      setAuthStatus(result.error || 'Could not open the hosted login popup.', 'error');
     }
-
-    setAuthStatus('Success. Opening MessageBackup…', 'success');
-    window.location.href = 'index.html';
+    return result;
   } finally {
     setAuthBusy(false);
   }
 }
 
+async function hydrateAuthState() {
+  return window.electronAPI.getAuthState();
+}
+
+function applyAuthState(state) {
+  updateAccountPanel(state);
+  updateAuthGate(state);
+}
+
+async function routeAuthenticatedUser() {
+  const state = await hydrateAuthState();
+  applyAuthState(state);
+
+  if (!state.authenticated) {
+    setStatus('Local export workspace ready. Use the left menu to sign in if you want synced account tracking.');
+    return;
+  }
+
+  setStatus('Account connected. You can now export conversation XML.', 'success');
+}
+
 if (authForm) {
-  authForm.addEventListener('submit', async (event) => {
+  authForm.addEventListener('submit', (event) => {
     event.preventDefault();
-    await handleAuthAction('signin');
   });
 }
 
-if (signUpButton) {
-  signUpButton.addEventListener('click', async () => {
-    await handleAuthAction('signup');
-  });
-}
-
-if (guestButton) {
+if (guestButton && !authForm) {
   guestButton.addEventListener('click', async () => {
-    setAuthBusy(true);
-    setAuthStatus('Starting guest session…');
+    await openHostedLogin('Opening hosted login…');
+  });
+}
 
-    try {
-      const result = await window.electronAPI.continueAsGuest();
-      if (!result.ok) {
-        setAuthStatus(result.error || 'Could not start guest mode.', 'error');
-        return;
-      }
-
-      setAuthStatus('Guest session ready. Opening MessageBackup…', 'success');
-      window.location.href = 'index.html';
-    } finally {
-      setAuthBusy(false);
-    }
+if (openLoginButton) {
+  openLoginButton.addEventListener('click', async () => {
+    await openHostedLogin('Opening secure login…');
   });
 }
 
 if (logoutButton) {
   logoutButton.addEventListener('click', async () => {
     const result = await window.electronAPI.signOut();
-    if (result.ok) {
-      window.location.href = 'welcome.html';
+    if (!result.ok) {
+      setStatus(result.error || 'Could not sign out.', 'error');
       return;
     }
 
-    setStatus(result.error || 'Could not sign out.', 'error');
+    applyAuthState(result.state);
+    setStatus('Signed out. Reconnect in the popup to continue exporting.');
   });
 }
 
@@ -480,3 +442,12 @@ function resetPreview() {
 }
 
 void routeAuthenticatedUser();
+
+if (window.electronAPI.onAuthStateChanged) {
+  window.electronAPI.onAuthStateChanged((state) => {
+    applyAuthState(state);
+    if (state?.authenticated) {
+      setStatus('Account connected. You can now export conversation XML.', 'success');
+    }
+  });
+}

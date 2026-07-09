@@ -1,5 +1,5 @@
-import React, { useState, useRef } from 'react';
-import { Laptop, FolderOpen, Loader2, CheckCircle2, AlertCircle, FileText, Settings, Sparkles, ExternalLink } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { Laptop, FolderOpen, Loader2, CheckCircle2, FileText, ExternalLink } from 'lucide-react';
 
 declare global {
   interface Window {
@@ -29,56 +29,30 @@ export default function DesktopAppLauncher({ theme = 'dark', userId }: DesktopAp
   const textTitle = isDark ? 'text-slate-100' : 'text-slate-800';
   const textSub = isDark ? 'text-slate-400' : 'text-slate-500';
   const consoleBg = isDark ? 'bg-[#0d1321] border-slate-800' : 'bg-slate-900 border-slate-800 text-slate-200';
+  const isRunningInElectron = typeof window !== 'undefined' &&
+    (window.navigator.userAgent.toLowerCase().includes('electron') || Boolean(window.electronAPI?.openLocalWorkspace) || Boolean(window.electron));
 
   const appendLog = (message: string) => {
     setLogs((prev) => [...prev, `[${new Date().toLocaleTimeString()}] ${message}`]);
   };
 
-  /**
-   * CORE HANDLER FOR LAUNCHING/LOADING LOCAL DESKTOP APP
-   * 
-   * =========================================================================
-   * 🛠️ CODER PLACEHOLDER: EDIT THIS FUNCTION TO IMPLEMENT REAL DESKTOP INTEGRATION 🛠️
-   * =========================================================================
-   * 
-   * Currently, this function simulates launching and scanning. In production:
-   * 
-   * OPTION A: CUSTOM DEEP-LINK PROTOCOL (Launch local app from standard browser)
-   *   window.location.href = "smsbackup://launch?userId=" + userId;
-   * 
-   * OPTION B: ELECTRON IPC BRIDGE (If the web portal is rendered inside Electron)
-   *   if (window.ipcRenderer) {
-   *     window.ipcRenderer.send('load-local-desktop-files', { userId });
-   *   }
-   * 
-   * OPTION C: LOCALHOST AGENT REST API (Trigger local background backup daemon on port 4892)
-   *   fetch('http://localhost:4892/api/backup/load')
-   * 
-   * OPTION D: FILE SYSTEM ACCESS API / FILE DIALOG (Read local files directly from web interface)
-   *   (Currently supported via the "Manual Select" fallback below)
-   */
-  const handleOpenDesktopApp = async () => {
+  const launchDesktopApp = async (automatic = false) => {
     setLoading(true);
-    setCompleted(false);
+    if (!automatic) {
+      setCompleted(false);
+    }
     setError(null);
-    setLogs([]);
-    setStatus('Initializing communication with SMSBackup Desktop Agent...');
+    if (!automatic) {
+      setLogs([]);
+    }
+    setStatus(automatic ? 'Opening desktop workspace after sign in...' : 'Initializing communication with SMSBackup Desktop Agent...');
 
-    appendLog('Initalizing local companion application hook...');
+    appendLog(automatic ? 'Authenticated session detected. Auto-launching local workspace...' : 'Initializing local companion application hook...');
     appendLog(`Authenticated User ID: ${userId}`);
-    
-    // Simulate connection step
-    await new Promise((r) => setTimeout(r, 800));
-
-    // CODER DIRECTIVE: You can add actual system execution hooks here.
-    // Example: Launch native helper or check if running within the Mac app wrapper
-    const isRunningInElectron = typeof window !== 'undefined' &&
-      (window.navigator.userAgent.toLowerCase().includes('electron') || Boolean(window.electronAPI?.openLocalWorkspace) || Boolean(window.electron));
 
     if (isRunningInElectron) {
       appendLog('Detected Native Mac App Container environment!');
       setStatus('IPC handshake successful. Opening local MessageBackup export workspace...');
-      await new Promise((r) => setTimeout(r, 400));
 
       try {
         const result = await window.electronAPI?.openLocalWorkspace?.();
@@ -88,7 +62,7 @@ export default function DesktopAppLauncher({ theme = 'dark', userId }: DesktopAp
 
         appendLog('Electron bridge responded successfully.');
         appendLog('Local MessageBackup export workspace opened.');
-        setStatus('Complete');
+        setStatus('Desktop workspace opened.');
         setCompleted(true);
         setLoading(false);
         return;
@@ -99,44 +73,36 @@ export default function DesktopAppLauncher({ theme = 'dark', userId }: DesktopAp
         setLoading(false);
         return;
       }
-    } else {
-      appendLog('Detected Standard Web Browser. Attempting deep-link fallback (smsbackup://open)...');
-      
-      // We trigger the protocol launcher
-      try {
-        const iframe = document.createElement('iframe');
-        iframe.style.display = 'none';
-        iframe.src = `smsbackup://open?userId=${userId}&env=web-sandbox`;
-        document.body.appendChild(iframe);
-        setTimeout(() => document.body.removeChild(iframe), 1000);
-      } catch (e) {
-        appendLog('Deep-link protocol dispatched. Waiting for client daemon feedback.');
-      }
-      
-      await new Promise((r) => setTimeout(r, 1000));
     }
 
-    // Load local files simulation/process
-    setStatus('Scanning macOS Chat database registry...');
-    appendLog('Locating standard system database path: ~/Library/Messages/chat.db');
-    await new Promise((r) => setTimeout(r, 700));
-
-    appendLog('Parsing local iMessage sqlite schema (v14 tables)...');
-    await new Promise((r) => setTimeout(r, 600));
-
-    appendLog('Found 4,821 local messages, 42 unique chats.');
-    setStatus('Reading active conversation index keys...');
-    await new Promise((r) => setTimeout(r, 800));
-
-    appendLog('Synchronizing records with secure remote Firestore instance...');
-    setStatus('Uploading newly discovered metadata packets...');
-    await new Promise((r) => setTimeout(r, 900));
-
-    appendLog('Local macOS backup file sync completed successfully!');
-    setStatus('Complete');
-    setCompleted(true);
+    appendLog('Detected Standard Web Browser. Dispatching smsbackup:// deep link...');
+    try {
+      const iframe = document.createElement('iframe');
+      iframe.style.display = 'none';
+      iframe.src = `smsbackup://open?userId=${userId}&env=web-sandbox`;
+      document.body.appendChild(iframe);
+      setTimeout(() => document.body.removeChild(iframe), 1000);
+      appendLog('Deep-link dispatched. Open the local MessageBackup app on this Mac.');
+      setStatus('Waiting for local app...');
+    } catch (err: any) {
+      appendLog(`Deep-link dispatch error: ${err?.message || String(err)}`);
+      setError(err?.message || 'Could not dispatch the desktop app link.');
+      setStatus('Desktop launch failed');
+    }
     setLoading(false);
   };
+
+  const handleOpenDesktopApp = async () => {
+    await launchDesktopApp(false);
+  };
+
+  useEffect(() => {
+    if (!isRunningInElectron || completed || loading) {
+      return;
+    }
+
+    void launchDesktopApp(true);
+  }, [isRunningInElectron, userId]);
 
   // Safe manual file selector handling
   const handleManualFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -224,17 +190,10 @@ export default function DesktopAppLauncher({ theme = 'dark', userId }: DesktopAp
         </button>
       </div>
 
-      {/* CODER PLACEHOLDER NOTIFICATION BAR */}
       <div className={`p-3.5 rounded-xl border mb-5 ${isDark ? 'bg-slate-900/40 border-slate-800' : 'bg-slate-50 border-slate-200'}`}>
-        <div className="flex items-start gap-2.5">
-          <Settings className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
-          <div className="text-xs">
-            <p className={`font-semibold ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>👨‍💻 Developer Integration Hook Placeholder</p>
-            <p className={`mt-1 leading-relaxed ${textSub}`}>
-              Coders can customize <code className="font-mono text-[11px] bg-blue-500/10 px-1 py-0.5 rounded text-blue-400">handleOpenDesktopApp()</code> inside <code className="font-mono text-[11px] bg-blue-500/10 px-1 py-0.5 rounded text-blue-400">DesktopAppLauncher.tsx</code> to read native SQLite structures, bind local ports, or pass encryption authorization tokens safely.
-            </p>
-          </div>
-        </div>
+        <p className={`text-xs leading-relaxed ${textSub}`}>
+          The desktop button connects this signed-in portal to the native MessageBackup export workspace on your Mac. If the local workspace is already open, this button brings it to the front.
+        </p>
       </div>
 
       {/* MANUAL SYNC TRIGGER & CONSOLE */}
