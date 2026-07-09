@@ -97,7 +97,7 @@ async function initHostedLoginBridge() {
 
 void initHostedLoginBridge();
 
-function injectLoginPopupChrome() {
+function injectLoginPopupStyles() {
   const params = new URLSearchParams(window.location.search);
   const isDesktopShell = params.get('loginPopup') === '1' || params.get('desktop') === '1';
   if (!isDesktopShell || !navigator.userAgent.toLowerCase().includes('electron')) {
@@ -105,59 +105,20 @@ function injectLoginPopupChrome() {
   }
 
   const styleId = 'mb-desktop-login-popup-style';
-  if (!document.getElementById(styleId)) {
-    const style = document.createElement('style');
-    style.id = styleId;
-    style.textContent = `
-      #desktop-terminal-log-panel,
-      #desktop-app-launcher-panel .font-mono.text-xs.p-4.rounded-xl.border.h-44,
-      #desktop-app-launcher-panel .font-mono.text-xs.p-4.rounded-xl.border {
-        display: none !important;
-      }
-    `;
-    document.head.appendChild(style);
+  if (document.getElementById(styleId)) {
+    return;
   }
 
-  const injectCloseButton = () => {
-    if (!document.body || document.getElementById('mb-login-popup-close')) {
-      return;
+  const style = document.createElement('style');
+  style.id = styleId;
+  style.textContent = `
+    #desktop-terminal-log-panel,
+    #desktop-app-launcher-panel .font-mono.text-xs.p-4.rounded-xl.border.h-44,
+    #desktop-app-launcher-panel .font-mono.text-xs.p-4.rounded-xl.border {
+      display: none !important;
     }
-
-    const closeButton = document.createElement('button');
-    closeButton.id = 'mb-login-popup-close';
-    closeButton.type = 'button';
-    closeButton.textContent = 'Close';
-    closeButton.setAttribute('aria-label', 'Close sign in window');
-    closeButton.style.cssText = [
-      'position:fixed',
-      'top:12px',
-      'right:12px',
-      'z-index:100000',
-      'padding:8px 14px',
-      'border:none',
-      'border-radius:10px',
-      'background:#e2e8f0',
-      'color:#0f172a',
-      'font:600 12px system-ui,-apple-system,sans-serif',
-      'cursor:pointer',
-      'box-shadow:0 8px 24px rgba(0,0,0,.15)'
-    ].join(';');
-    closeButton.addEventListener('click', () => {
-      void ipcRenderer.invoke('auth-close-login-popup');
-    });
-    document.body.appendChild(closeButton);
-  };
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', injectCloseButton);
-  } else {
-    injectCloseButton();
-  }
-
-  new MutationObserver(injectCloseButton).observe(document.documentElement, {
-    childList: true,
-    subtree: true
-  });
+  `;
+  document.head.appendChild(style);
 }
 
-injectLoginPopupChrome();
+injectLoginPopupStyles();

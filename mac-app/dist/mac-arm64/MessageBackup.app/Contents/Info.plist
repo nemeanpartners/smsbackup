@@ -21,7 +21,7 @@
 	<key>CFBundleShortVersionString</key>
 	<string>1.0.0</string>
 	<key>CFBundleVersion</key>
-	<string>7</string>
+	<string>9</string>
 	<key>DTCompiler</key>
 	<string>com.apple.compilers.llvm.clang.1_0</string>
 	<key>DTSDKBuild</key>
@@ -39,7 +39,7 @@
 			<key>algorithm</key>
 			<string>SHA256</string>
 			<key>hash</key>
-			<string>4b475da01f290b157b83fadda6d16daa65ecbe6dad7a37463c417ef2a339e4ac</string>
+			<string>9a605d4a5005cd2de518d7eec9b1b1ae188ea0dc77a87064616c0f89f8ba015a</string>
 		</dict>
 	</dict>
 	<key>ElectronTeamID</key>

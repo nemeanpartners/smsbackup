@@ -181,34 +181,90 @@ export default function App() {
   if (isDesktopLoginPopup && currentUser) {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
-        <header className="flex items-center justify-between px-5 py-4 border-b border-slate-200 bg-white shadow-sm">
-          <div>
-            <h1 className="text-sm font-bold text-slate-800">MessageBackup Sign In</h1>
-            <p className="text-[11px] text-slate-400">Optional account sync for export counts</p>
+        <header className="bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between shadow-sm">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center border border-blue-100 flex-shrink-0">
+              <Shield className="w-4.5 h-4.5" />
+            </div>
+            <div className="min-w-0">
+              <h1 className="font-bold text-slate-800 text-sm leading-none truncate">Customer Access Portal</h1>
+              <p className="text-[10px] text-slate-400 font-mono mt-0.5">MESSAGE BACKUP CLIENT</p>
+            </div>
           </div>
-          <button
-            type="button"
-            onClick={() => window.electronAPI?.closeLoginPopup?.()}
-            className="text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg transition"
-          >
-            Close
-          </button>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <button
+              type="button"
+              onClick={() => setIsProfileOpen(true)}
+              className="text-xs font-semibold bg-blue-50 hover:bg-blue-100 text-blue-600 px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 border border-blue-100/50"
+            >
+              <UserIcon className="w-3.5 h-3.5" /> Profile Settings
+            </button>
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg transition flex items-center gap-1.5"
+            >
+              <LogOut className="w-3.5 h-3.5" /> Sign Out
+            </button>
+          </div>
         </header>
 
-        <div className="flex-1 p-6 max-w-xl mx-auto w-full space-y-4">
-          <div className="bg-white border border-slate-200/80 shadow-sm rounded-2xl p-5 text-center">
-            <CheckCircle className="w-8 h-8 text-emerald-500 mx-auto mb-3" />
-            <h2 className="text-lg font-bold text-slate-800">Signed in successfully</h2>
-            <p className="text-xs text-slate-500 mt-2">
-              {userProfile?.email || currentUser.email || 'Account connected'}
+        <div className="flex-1 p-4 space-y-4 overflow-y-auto">
+          <div className="bg-white border border-slate-200/80 shadow-xl rounded-2xl p-5 text-center">
+            {userProfile && (
+              <div className="flex flex-col items-center mb-5">
+                {userProfile.photoURL ? (
+                  <img
+                    src={userProfile.photoURL}
+                    alt="avatar"
+                    referrerPolicy="no-referrer"
+                    className="w-16 h-16 rounded-full border-4 border-slate-100 shadow-md mb-3"
+                  />
+                ) : (
+                  <div className="w-16 h-16 rounded-full bg-blue-50 border-4 border-slate-100 shadow-md text-blue-600 flex items-center justify-center text-2xl font-black mb-3 select-none">
+                    {userProfile.displayName ? userProfile.displayName.substring(0, 1).toUpperCase() : 'C'}
+                  </div>
+                )}
+                <h2 className="text-lg font-bold text-slate-800 leading-tight">{userProfile.displayName || 'Customer'}</h2>
+                <p className="text-[11px] text-slate-400 font-mono mt-0.5">{userProfile.email || currentUser.email || 'anonymous-session@backup.local'}</p>
+              </div>
+            )}
+
+            <div className="bg-emerald-50 text-emerald-800 text-xs font-medium border border-emerald-100 rounded-xl px-4 py-3 mb-4 flex items-start gap-2.5 text-left">
+              <CheckCircle className="w-4 h-4 text-emerald-600 mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="font-semibold text-emerald-900 text-xs">Successfully Connected</p>
+                <p className="text-[10px] text-emerald-700 mt-0.5">You have authenticated this session.</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-500 leading-relaxed mb-5">
+              Your device synchronization credentials are live. View your profile settings to edit your account name and manage stored companion backups.
             </p>
-            <p className="text-xs text-slate-500 mt-3 leading-relaxed">
-              Open the local desktop app below, or close this window to keep using MessageBackup without syncing.
-            </p>
+
+            <button
+              type="button"
+              onClick={() => setIsProfileOpen(true)}
+              className="w-full bg-slate-900 hover:bg-slate-800 text-white font-semibold py-2 px-4 rounded-xl transition shadow-lg shadow-slate-900/10 flex items-center justify-center gap-2 text-xs"
+            >
+              <UserIcon className="w-3.5 h-3.5" />
+              View Account & Profile Page
+            </button>
           </div>
 
           <DesktopAppLauncher theme="light" userId={currentUser.uid} hideTerminal />
         </div>
+
+        {userProfile && (
+          <ProfileModal
+            isOpen={isProfileOpen}
+            onClose={() => setIsProfileOpen(false)}
+            currentUser={currentUser}
+            userProfile={userProfile}
+            onProfileUpdated={(updated) => setUserProfile(updated)}
+            isAdmin={false}
+          />
+        )}
       </div>
     );
   }
@@ -216,27 +272,12 @@ export default function App() {
   // Not signed in -> gate entry
   if (!currentUser) {
     return (
-      <div className="min-h-screen bg-[#0b0f19] flex flex-col">
-        {isDesktopLoginPopup && (
-          <div className="flex justify-end px-4 py-3 border-b border-slate-800/80 bg-[#111827]">
-            <button
-              type="button"
-              onClick={() => window.electronAPI?.closeLoginPopup?.()}
-              className="text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg transition"
-            >
-              Close
-            </button>
-          </div>
-        )}
-        <div className="flex-1">
-          <LoginGate
-            onSuccess={() => {
-              // Success handled via listener
-            }}
-            onOfflineBypass={handleOfflineBypass}
-          />
-        </div>
-      </div>
+      <LoginGate
+        onSuccess={() => {
+          // Success handled via listener
+        }}
+        onOfflineBypass={handleOfflineBypass}
+      />
     );
   }
 

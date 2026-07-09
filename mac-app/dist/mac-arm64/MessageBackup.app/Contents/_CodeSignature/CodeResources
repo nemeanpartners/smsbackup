@@ -14,7 +14,7 @@
 		</data>
 		<key>Resources/app.asar</key>
 		<data>
-		putZxnZDTi4v/BcxgTk34ira86M=
+		Sf+gIq0UylpyTHbGTQLBgHkFi5U=
 		</data>
 		<key>Resources/icon.icns</key>
 		<data>
@@ -27,7 +27,7 @@
 		<dict>
 			<key>cdhash</key>
 			<data>
-			sVk6XWv/tC/cvE70Z+hUiz01wdM=
+			juLIsptfUbLFearLHoS/IPNaN74=
 			</data>
 			<key>requirement</key>
 			<string>identifier "com.github.Electron.framework" and anchor apple generic and certificate 1[field.1.2.840.113635.100.6.2.6] /* exists */ and certificate leaf[field.1.2.840.113635.100.6.1.13] /* exists */ and certificate leaf[subject.OU] = "7ZU4NQ9RVT"</string>
@@ -45,7 +45,7 @@
 		<dict>
 			<key>cdhash</key>
 			<data>
-			hyh+aaurrB2Si6E138IwCB71TtM=
+			MeoXHye+XdBCwQO27wuY8z1BKAU=
 			</data>
 			<key>requirement</key>
 			<string>identifier "backupmessages.nemeanpartners.mac.helper.GPU" and anchor apple generic and certificate 1[field.1.2.840.113635.100.6.2.6] /* exists */ and certificate leaf[field.1.2.840.113635.100.6.1.13] /* exists */ and certificate leaf[subject.OU] = "7ZU4NQ9RVT"</string>
@@ -54,7 +54,7 @@
 		<dict>
 			<key>cdhash</key>
 			<data>
-			HLrcM74kQKAaNGt1WkzR/UFBDrE=
+			9wSvXbrEGGqB2vPfPW04qfusTeY=
 			</data>
 			<key>requirement</key>
 			<string>identifier "backupmessages.nemeanpartners.mac.helper.Plugin" and anchor apple generic and certificate 1[field.1.2.840.113635.100.6.2.6] /* exists */ and certificate leaf[field.1.2.840.113635.100.6.1.13] /* exists */ and certificate leaf[subject.OU] = "7ZU4NQ9RVT"</string>
@@ -63,7 +63,7 @@
 		<dict>
 			<key>cdhash</key>
 			<data>
-			MiVCU3gAvkwNsKH2Iby/caByiSE=
+			zcKUrVHh0FIhR56eavPeJL/c7cI=
 			</data>
 			<key>requirement</key>
 			<string>identifier "backupmessages.nemeanpartners.mac.helper.Renderer" and anchor apple generic and certificate 1[field.1.2.840.113635.100.6.2.6] /* exists */ and certificate leaf[field.1.2.840.113635.100.6.1.13] /* exists */ and certificate leaf[subject.OU] = "7ZU4NQ9RVT"</string>
@@ -72,7 +72,7 @@
 		<dict>
 			<key>cdhash</key>
 			<data>
-			lTcslvU2HVfZs2V4tBVQlirEFE8=
+			nriQ/I82U6Bu3y4LtXv9N6aLxnk=
 			</data>
 			<key>requirement</key>
 			<string>identifier "backupmessages.nemeanpartners.mac.helper" and anchor apple generic and certificate 1[field.1.2.840.113635.100.6.2.6] /* exists */ and certificate leaf[field.1.2.840.113635.100.6.1.13] /* exists */ and certificate leaf[subject.OU] = "7ZU4NQ9RVT"</string>
@@ -90,7 +90,7 @@
 		<dict>
 			<key>cdhash</key>
 			<data>
-			guD7Ppjp1QRQ7m8+gQvfHTSBJPo=
+			suDcF7SNpY/5/l9KR37wPrdo2X4=
 			</data>
 			<key>requirement</key>
 			<string>identifier "com.github.Squirrel" and anchor apple generic and certificate 1[field.1.2.840.113635.100.6.2.6] /* exists */ and certificate leaf[field.1.2.840.113635.100.6.1.13] /* exists */ and certificate leaf[subject.OU] = "7ZU4NQ9RVT"</string>
@@ -113,7 +113,7 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			5lVe7Jg3lJDwNY8aU1405Ml221hqGYFeQhupOuHJVNE=
+			l8qyKpkG3nUJfEhHp/n+wI33ENoc8ZZvYUMSAVcOJJQ=
 			</data>
 		</dict>
 		<key>Resources/icon.icns</key>
