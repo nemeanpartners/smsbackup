@@ -26,6 +26,8 @@ export default function App() {
   const [isOfflineSandbox, setIsOfflineSandbox] = useState<boolean>(() => {
     return localStorage.getItem('is_offline_sandbox') === 'true';
   });
+  const isLoginPopup = typeof window !== 'undefined' &&
+    new URLSearchParams(window.location.search).get('loginPopup') === '1';
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -167,6 +169,18 @@ export default function App() {
       <div className="min-h-screen bg-[#0b0f19] flex flex-col items-center justify-center p-4">
         <RefreshCw className="w-8 h-8 text-blue-500 animate-spin mb-3" />
         <p className="text-slate-400 font-mono text-xs">Synchronizing vault secrets...</p>
+      </div>
+    );
+  }
+
+  if (isLoginPopup && currentUser) {
+    return (
+      <div className="min-h-screen bg-[#0b0f19] flex flex-col items-center justify-center p-6">
+        <div className="max-w-sm text-center space-y-3">
+          <RefreshCw className="w-8 h-8 text-emerald-400 mx-auto" />
+          <p className="text-slate-200 font-semibold">Signed in successfully</p>
+          <p className="text-slate-400 text-sm">Returning to the local SMS desktop app…</p>
+        </div>
       </div>
     );
   }

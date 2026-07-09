@@ -1,6 +1,8 @@
 const chatDbLabel = document.getElementById('chatDbPath');
+const chatDbLabelSecondary = document.getElementById('chatDbPathSecondary');
 const outputPathLabel = document.getElementById('outputPath');
 const pickChatDbButton = document.getElementById('pickChatDb');
+const pickChatDbSecondaryButton = document.getElementById('pickChatDbSecondary');
 const pickOutputButton = document.getElementById('pickOutput');
 const convertButton = document.getElementById('convertButton');
 const statusLabel = document.getElementById('status');
@@ -16,15 +18,7 @@ const accountModeBadge = document.getElementById('accountModeBadge');
 const accountEmail = document.getElementById('accountEmail');
 const accountExports = document.getElementById('accountExports');
 const openLoginButton = document.getElementById('openLoginButton');
-
-const authForm = document.getElementById('authForm');
-const authEmail = document.getElementById('authEmail');
-const authPassword = document.getElementById('authPassword');
-const signInButton = document.getElementById('signInButton');
-const signUpButton = document.getElementById('signUpButton');
-const guestButton = document.getElementById('guestButton');
 const authStatus = document.getElementById('authStatus');
-const authConfigNotice = document.getElementById('authConfigNotice');
 
 let chatDbPath = null;
 let chatDbBookmark = null;
@@ -48,17 +42,24 @@ function setStatus(message, kind = '') {
 
 function setAuthStatus(message, kind = '') {
   if (!authStatus) return;
+  if (!message) {
+    authStatus.textContent = '';
+    authStatus.className = 'sidebar-status hidden';
+    return;
+  }
+
   authStatus.textContent = message;
-  authStatus.className = kind ? `status-label ${kind}` : 'status-label';
+  authStatus.className = kind ? `sidebar-status ${kind}` : 'sidebar-status';
 }
 
 function setAuthBusy(isBusy) {
-  if (authEmail) authEmail.disabled = isBusy;
-  if (authPassword) authPassword.disabled = isBusy;
-  if (signInButton) signInButton.disabled = isBusy;
-  if (signUpButton) signUpButton.disabled = isBusy;
-  if (guestButton) guestButton.disabled = isBusy;
   if (openLoginButton) openLoginButton.disabled = isBusy;
+}
+
+function updateChatDbLabels(path) {
+  const label = path || 'No database selected';
+  if (chatDbLabel) chatDbLabel.textContent = label;
+  if (chatDbLabelSecondary) chatDbLabelSecondary.textContent = path || 'No file selected';
 }
 
 function getSelectedHandle() {
@@ -81,32 +82,37 @@ function updateAccountPanel(state) {
   accountState = state;
   if (!accountEmail || !accountModeBadge || !accountExports) return;
 
-  accountEmail.textContent = state?.email || 'Not signed in';
-  accountModeBadge.textContent = state?.mode === 'firebase' ? 'Account' : 'Guest';
-  accountModeBadge.classList.toggle('guest', state?.mode !== 'firebase');
+  const signedIn = state?.mode === 'firebase' && state?.authenticated;
+  accountEmail.textContent = signedIn ? (state.email || 'Signed in') : 'Sign in (optional)';
+  accountModeBadge.textContent = signedIn ? 'Account' : 'Guest';
+  accountModeBadge.classList.toggle('guest', !signedIn);
 
   const exportCount = Number(state?.exportCount || 0);
-  accountExports.textContent = `${exportCount} export${exportCount === 1 ? '' : 's'} recorded`;
-}
+  accountExports.textContent = signedIn
+    ? `${exportCount} export${exportCount === 1 ? '' : 's'} synced`
+    : 'Export count not synced';
 
-function updateAuthGate(state) {
-  const authenticated = Boolean(state?.authenticated);
-  if (authenticated) {
-    setAuthStatus('Connected. Local export tools are ready.', 'success');
-    return;
+  if (logoutButton) {
+    logoutButton.classList.toggle('hidden', !signedIn);
   }
-
-  const fallbackMessage = state?.error || 'Local export tools are visible now. Use the popup only if you want account sync.';
-  setAuthStatus(fallbackMessage, state?.error ? 'error' : '');
 }
 
-async function openHostedLogin(message = 'Opening secure login…') {
+function applyAuthState(state) {
+  updateAccountPanel(state);
+  if (state?.authenticated) {
+    setAuthStatus('Signed in. Export counts will sync to your account.', 'success');
+  } else {
+    setAuthStatus('');
+  }
+}
+
+async function openLoginPopup(message = 'Opening sign-in…') {
   setAuthBusy(true);
   setAuthStatus(message);
   try {
-    const result = await window.electronAPI.showHostedLogin();
+    const result = await window.electronAPI.showLoginPopup();
     if (!result.ok) {
-      setAuthStatus(result.error || 'Could not open the hosted login popup.', 'error');
+      setAuthStatus(result.error || 'Could not open sign-in.', 'error');
     }
     return result;
   } finally {
@@ -114,56 +120,19 @@ async function openHostedLogin(message = 'Opening secure login…') {
   }
 }
 
-async function hydrateAuthState() {
-  return window.electronAPI.getAuthState();
-}
-
-function applyAuthState(state) {
-  updateAccountPanel(state);
-  updateAuthGate(state);
-}
-
-async function routeAuthenticatedUser() {
-  const state = await hydrateAuthState();
-  applyAuthState(state);
-
-  if (!state.authenticated) {
-    setStatus('Local export workspace ready. Use the left menu to sign in if you want synced account tracking.');
+async function pickDatabase() {
+  const selected = await window.electronAPI.selectChatDb();
+  if (!selected) {
+    setStatus('No database selected.');
     return;
   }
 
-  setStatus('Account connected. You can now export conversation XML.', 'success');
-}
-
-if (authForm) {
-  authForm.addEventListener('submit', (event) => {
-    event.preventDefault();
-  });
-}
-
-if (guestButton && !authForm) {
-  guestButton.addEventListener('click', async () => {
-    await openHostedLogin('Opening hosted login…');
-  });
-}
-
-if (openLoginButton) {
-  openLoginButton.addEventListener('click', async () => {
-    await openHostedLogin('Opening secure login…');
-  });
-}
-
-if (logoutButton) {
-  logoutButton.addEventListener('click', async () => {
-    const result = await window.electronAPI.signOut();
-    if (!result.ok) {
-      setStatus(result.error || 'Could not sign out.', 'error');
-      return;
-    }
-
-    applyAuthState(result.state);
-    setStatus('Signed out. Reconnect in the popup to continue exporting.');
-  });
+  chatDbPath = selected.path;
+  chatDbBookmark = selected.bookmark || null;
+  updateChatDbLabels(selected.path);
+  setStatus('Database selected. Loading contacts…');
+  resetPreview();
+  await loadContacts();
 }
 
 async function loadContacts() {
@@ -195,20 +164,11 @@ async function loadContacts() {
 }
 
 if (pickChatDbButton) {
-  pickChatDbButton.addEventListener('click', async () => {
-    const selected = await window.electronAPI.selectChatDb();
-    if (!selected) {
-      setStatus('No database selected.');
-      return;
-    }
+  pickChatDbButton.addEventListener('click', pickDatabase);
+}
 
-    chatDbPath = selected.path;
-    chatDbBookmark = selected.bookmark || null;
-    chatDbLabel.textContent = selected.path;
-    setStatus('Database selected. Loading contacts…');
-    resetPreview();
-    await loadContacts();
-  });
+if (pickChatDbSecondaryButton) {
+  pickChatDbSecondaryButton.addEventListener('click', pickDatabase);
 }
 
 if (pickOutputButton) {
@@ -246,13 +206,12 @@ if (convertButton) {
     }
 
     convertButton.disabled = true;
-    pickChatDbButton.disabled = true;
+    if (pickChatDbButton) pickChatDbButton.disabled = true;
+    if (pickChatDbSecondaryButton) pickChatDbSecondaryButton.disabled = true;
     pickOutputButton.disabled = true;
     loadContactsButton.disabled = true;
     contactSelect.disabled = true;
-    if (myNumberInput) {
-      myNumberInput.disabled = true;
-    }
+    if (myNumberInput) myNumberInput.disabled = true;
     setStatus('Extracting conversation XML… this may take a moment.');
 
     try {
@@ -293,13 +252,12 @@ if (convertButton) {
       setStatus(`Unexpected error: ${err.message || String(err)}`, 'error');
     } finally {
       convertButton.disabled = false;
-      pickChatDbButton.disabled = false;
+      if (pickChatDbButton) pickChatDbButton.disabled = false;
+      if (pickChatDbSecondaryButton) pickChatDbSecondaryButton.disabled = false;
       pickOutputButton.disabled = false;
       loadContactsButton.disabled = false;
       contactSelect.disabled = false;
-      if (myNumberInput) {
-        myNumberInput.disabled = false;
-      }
+      if (myNumberInput) myNumberInput.disabled = false;
     }
   });
 }
@@ -318,9 +276,7 @@ if (threadToggle) {
 }
 
 if (loadContactsButton) {
-  loadContactsButton.addEventListener('click', async () => {
-    await loadContacts();
-  });
+  loadContactsButton.addEventListener('click', loadContacts);
 }
 
 if (contactSelect) {
@@ -348,6 +304,28 @@ if (contactSelect) {
     } catch (err) {
       threadContainer.innerHTML = `<div class="thread-placeholder">Unexpected error: ${err.message || String(err)}</div>`;
     }
+  });
+}
+
+if (openLoginButton) {
+  openLoginButton.addEventListener('click', async () => {
+    if (accountState?.authenticated) {
+      return;
+    }
+    await openLoginPopup('Opening sign-in window…');
+  });
+}
+
+if (logoutButton) {
+  logoutButton.addEventListener('click', async () => {
+    const result = await window.electronAPI.signOut();
+    if (!result.ok) {
+      setAuthStatus(result.error || 'Could not sign out.', 'error');
+      return;
+    }
+
+    applyAuthState(result.state);
+    setStatus('Signed out. You can keep exporting locally without an account.');
   });
 }
 
@@ -441,13 +419,19 @@ function resetPreview() {
   threadToggleIcon.textContent = '▾';
 }
 
-void routeAuthenticatedUser();
+async function bootstrap() {
+  const state = await window.electronAPI.getAuthState();
+  applyAuthState(state);
+  setStatus('Ready — browse a database to begin.');
+}
+
+void bootstrap();
 
 if (window.electronAPI.onAuthStateChanged) {
   window.electronAPI.onAuthStateChanged((state) => {
     applyAuthState(state);
     if (state?.authenticated) {
-      setStatus('Account connected. You can now export conversation XML.', 'success');
+      setStatus('Signed in. Export counts will sync when you extract XML.', 'success');
     }
   });
 }

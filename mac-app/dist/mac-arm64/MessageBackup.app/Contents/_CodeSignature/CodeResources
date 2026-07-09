@@ -14,7 +14,7 @@
 		</data>
 		<key>Resources/app.asar</key>
 		<data>
-		mAdiBeMkHZHrDJwtb3jghuWEvZQ=
+		OPEl2L5918RCFLvKq2SiLcXR2P4=
 		</data>
 		<key>Resources/icon.icns</key>
 		<data>
@@ -27,7 +27,7 @@
 		<dict>
 			<key>cdhash</key>
 			<data>
-			tcZz9Xa1H6vnOsBkoGigMgl3KWM=
+			aHN0w0a7jsDzIH727bwPpxLes5Q=
 			</data>
 			<key>requirement</key>
 			<string>identifier "com.github.Electron.framework" and anchor apple generic and certificate 1[field.1.2.840.113635.100.6.2.6] /* exists */ and certificate leaf[field.1.2.840.113635.100.6.1.13] /* exists */ and certificate leaf[subject.OU] = "7ZU4NQ9RVT"</string>
@@ -90,7 +90,7 @@
 		<dict>
 			<key>cdhash</key>
 			<data>
-			OlEqfaVfSnPfXdhWwc7QAEAjhSw=
+			bKSAQifWf7nrqXHMrPHktSrErbQ=
 			</data>
 			<key>requirement</key>
 			<string>identifier "com.github.Squirrel" and anchor apple generic and certificate 1[field.1.2.840.113635.100.6.2.6] /* exists */ and certificate leaf[field.1.2.840.113635.100.6.1.13] /* exists */ and certificate leaf[subject.OU] = "7ZU4NQ9RVT"</string>
@@ -113,7 +113,7 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			+TNh1fw9lVwtCKnrdmI/E4Oc7gVT1biI3ost1zL4QDw=
+			W94AAabPYX+qu7lSc3oQWf9yQxBUh0WjmejmmEKizPI=
 			</data>
 		</dict>
 		<key>Resources/icon.icns</key>

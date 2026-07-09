@@ -12,81 +12,80 @@
     <div class="gradient-orbit gradient-orbit-1"></div>
     <div class="gradient-orbit gradient-orbit-2"></div>
 
-    <header class="app-header">
-      <div class="logo-circle">
-        <span>↔︎</span>
-      </div>
-      <div class="title-block">
-        <h1>MessageBackup</h1>
-        <p>Extract and export iPhone Messages conversation history locally on your Mac.</p>
-      </div>
-      <div class="account-panel">
-        <div class="account-copy">
-          <div class="account-topline">
-            <span id="accountModeBadge" class="account-badge">Guest</span>
-            <span id="accountEmail" class="account-email">Loading account…</span>
+    <div class="app-layout">
+      <aside class="sidebar">
+        <div class="sidebar-brand">
+          <div class="logo-circle">
+            <span>↔︎</span>
           </div>
-          <div id="accountExports" class="account-meta">0 exports recorded</div>
+          <div>
+            <h1>MessageBackup</h1>
+            <p>Local SMS export</p>
+          </div>
         </div>
-        <button id="logoutButton" class="back-arrow" aria-label="Sign out">⇥</button>
-      </div>
-    </header>
 
-      <main class="card app-shell">
-        <aside class="workspace-sidebar">
-          <div class="workspace-sidebar-card">
-            <div class="workspace-sidebar-badge">Main Menu</div>
-            <h2>Local Export Panel</h2>
-            <p>Use the local desktop tools on the right to browse chats and export XML. The menu stays visible while you work.</p>
+        <div class="sidebar-section">
+          <div class="sidebar-label">SMS Backup</div>
+          <p class="sidebar-copy">Browse your iPhone Messages database and export conversation XML on this Mac.</p>
+          <button id="pickChatDb" class="btn primary sidebar-browse-btn">Browse DB folder…</button>
+          <div id="chatDbPath" class="sidebar-path">No database selected</div>
+        </div>
+
+        <nav class="sidebar-section">
+          <div class="sidebar-label">Workflow</div>
+          <a class="sidebar-nav-item" href="#databaseSection">1. Find database</a>
+          <a class="sidebar-nav-item" href="#contactsSection">2. Load contacts</a>
+          <a class="sidebar-nav-item" href="#previewSection">3. Preview chat</a>
+          <a class="sidebar-nav-item" href="#extractSection">4. Extract conversation</a>
+          <a class="sidebar-nav-item" href="#outputSection">5. Save XML</a>
+        </nav>
+
+        <div class="sidebar-footer">
+          <button id="openLoginButton" class="sidebar-login-btn" type="button" aria-label="Sign in to save export count">
+            <span class="sidebar-login-icon" aria-hidden="true">👤</span>
+            <span class="sidebar-login-copy">
+              <span id="accountModeBadge" class="account-badge">Guest</span>
+              <span id="accountEmail" class="sidebar-login-email">Sign in (optional)</span>
+              <span id="accountExports" class="sidebar-login-meta">Export count not synced</span>
+            </span>
+          </button>
+          <button id="logoutButton" class="sidebar-logout-btn hidden" type="button">Sign out</button>
+          <div id="authStatus" class="sidebar-status hidden"></div>
+        </div>
+      </aside>
+
+      <div class="main-panel">
+        <header class="main-header">
+          <div>
+            <h2>Local SMS Desktop App</h2>
+            <p>Extract and export iPhone Messages conversation history locally. Nothing leaves your Mac.</p>
           </div>
+        </header>
 
-          <div class="workspace-sidebar-card">
-            <div class="workspace-sidebar-badge">Account</div>
-            <h3>Connection status</h3>
-            <p>Account sync is optional for the local export screen. If needed, open the hosted login without hiding the workspace.</p>
-            <button id="openLoginButton" class="btn primary sidebar-login-button">Open login popup</button>
-            <div id="authStatus" class="status-label sidebar-status">Checking account status…</div>
-          </div>
-
-          <div class="workspace-sidebar-card">
-            <div class="workspace-sidebar-badge">Steps</div>
-            <nav class="workspace-nav">
-              <a class="workspace-nav-item" href="#introSection">Before you start</a>
-              <a class="workspace-nav-item" href="#databaseSection">1. Find database</a>
-              <a class="workspace-nav-item" href="#contactsSection">2. Load contacts</a>
-              <a class="workspace-nav-item" href="#previewSection">3. Preview chat</a>
-              <a class="workspace-nav-item" href="#extractSection">4. Extract conversation</a>
-              <a class="workspace-nav-item" href="#outputSection">5. Save XML</a>
-            </nav>
-          </div>
-        </aside>
-
-        <div class="workspace-content">
+        <main class="workspace-content">
           <section id="introSection" class="intro">
             <h2>Before you start</h2>
-            <p class="hint">The App Store version uses the standard macOS file picker. You choose the files, and the app only reads what you select.</p>
+            <p class="hint">You choose the files — the app only reads what you select.</p>
             <ol class="intro-list">
               <li>Locate the <code>chat.db</code> file you want to convert.</li>
               <li>If macOS protects the original Messages database, copy <code>chat.db</code> to another folder first.</li>
-              <li>Select that database in this app and load contacts.</li>
-              <li>Select a contact.</li>
-              <li>The app exports XML locally.</li>
-              <li>Nothing is uploaded by this app.</li>
+              <li>Select that database and load contacts.</li>
+              <li>Select a contact and export XML locally.</li>
             </ol>
           </section>
 
           <section id="databaseSection" class="step">
             <h2>1. Find your Messages database</h2>
-            <p class="hint">Choose the exact <code>chat.db</code> file you want to convert.</p>
+            <p class="hint">Choose the exact <code>chat.db</code> file you want to convert, or use Browse DB folder in the left menu.</p>
             <div class="field-row">
-              <button id="pickChatDb" class="btn primary">Browse…</button>
-              <span id="chatDbPath" class="path-label">No file selected</span>
+              <button id="pickChatDbSecondary" class="btn primary">Browse…</button>
+              <span id="chatDbPathSecondary" class="path-label">No file selected</span>
             </div>
           </section>
 
           <section id="contactsSection" class="step">
             <h2>2. Load contacts</h2>
-            <p class="hint">This reads the selected <code>chat.db</code> snapshot and lists your contacts.</p>
+            <p class="hint">Reads the selected <code>chat.db</code> snapshot and lists your contacts.</p>
             <div class="field-row">
               <button id="loadContactsButton" class="btn">Load contacts</button>
               <span class="path-label">Ready after the database is selected.</span>
@@ -138,14 +137,15 @@
 
           <section class="step action-row">
             <button id="convertButton" class="btn accent">Extract Conversation XML</button>
-            <div id="status" class="status-label">Waiting to begin…</div>
+            <div id="status" class="status-label">Ready — browse a database to begin.</div>
           </section>
-        </div>
-      </main>
+        </main>
 
-    <footer class="app-footer">
-      <span>All conversion happens locally on your Mac. Nothing leaves your machine.</span>
-    </footer>
+        <footer class="app-footer">
+          <span>All conversion happens locally on your Mac. Sign in from the left menu only if you want export counts synced to your account.</span>
+        </footer>
+      </div>
+    </div>
   </div>
 
   <script src="renderer.js"></script>

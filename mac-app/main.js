@@ -7,7 +7,7 @@ const { convertIphoneSmsToXml, convertThreadToXml, listContacts, fetchThreadForH
 const { createAuthService } = require('./auth');
 
 let mainWindow;
-let workspaceWindow;
+let loginWindow;
 let authService;
 let bridgeLogPath;
 let portalServer;
@@ -122,18 +122,59 @@ async function withSecurityScopedAccess(bookmark, callback) {
 }
 
 async function loadNativeApp() {
-  if (!workspaceWindow) return;
-  await workspaceWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  await mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
 }
 
-async function loadHostedLogin(options = {}) {
-  if (!mainWindow) return;
+async function buildLoginUrl(options = {}) {
   const baseUrl = await startPortalServer();
   const url = new URL(baseUrl);
+  url.searchParams.set('desktop', '1');
+  url.searchParams.set('loginPopup', '1');
   if (options.signOutFirst) {
     url.searchParams.set('desktopSignOut', '1');
   }
-  await mainWindow.loadURL(url.toString());
+  return url.toString();
+}
+
+async function showLoginPopup(options = {}) {
+  if (loginWindow && !loginWindow.isDestroyed()) {
+    loginWindow.focus();
+    return loginWindow;
+  }
+
+  loginWindow = new BrowserWindow({
+    width: 520,
+    height: 760,
+    resizable: true,
+    modal: true,
+    parent: mainWindow,
+    show: false,
+    title: 'MessageBackup Sign In',
+    backgroundColor: '#0b0f19',
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      partition: 'persist:messagebackup-auth'
+    }
+  });
+
+  attachWindowOpenHandler(loginWindow, mainWindow);
+
+  loginWindow.on('closed', () => {
+    loginWindow = null;
+  });
+
+  loginWindow.once('ready-to-show', () => {
+    if (loginWindow && !loginWindow.isDestroyed()) {
+      loginWindow.show();
+      loginWindow.focus();
+    }
+  });
+
+  await loginWindow.loadURL(await buildLoginUrl(options));
+  return loginWindow;
 }
 
 function attachWindowOpenHandler(win, parentWindow = null) {
@@ -161,57 +202,25 @@ function attachWindowOpenHandler(win, parentWindow = null) {
 }
 
 function notifyAuthState(state) {
-  const windows = [mainWindow, workspaceWindow].filter(Boolean);
+  const windows = [mainWindow, loginWindow].filter((win) => win && !win.isDestroyed());
   for (const win of windows) {
-    if (!win.isDestroyed()) {
-      win.webContents.send('auth-state-updated', state);
-    }
+    win.webContents.send('auth-state-updated', state);
   }
 }
 
-async function showAppropriateView() {
-  await loadHostedLogin();
+function focusMainWindow() {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    if (!mainWindow.isVisible()) {
+      mainWindow.show();
+    }
+    mainWindow.focus();
+  }
 }
 
-function createWorkspaceWindow() {
-  if (workspaceWindow && !workspaceWindow.isDestroyed()) {
-    writeBridgeLog('Workspace window already exists, focusing existing window.');
-    workspaceWindow.focus();
-    return workspaceWindow;
+function closeLoginPopup() {
+  if (loginWindow && !loginWindow.isDestroyed()) {
+    loginWindow.close();
   }
-
-  workspaceWindow = new BrowserWindow({
-    width: 980,
-    height: 760,
-    resizable: true,
-    show: false,
-    title: 'MessageBackup Export Tools',
-    backgroundColor: '#05060a',
-    webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
-      contextIsolation: true,
-      nodeIntegration: false,
-      partition: 'persist:messagebackup-auth'
-    }
-  });
-
-  workspaceWindow.on('closed', () => {
-    workspaceWindow = null;
-  });
-
-  workspaceWindow.once('ready-to-show', () => {
-    if (workspaceWindow && !workspaceWindow.isDestroyed()) {
-      writeBridgeLog('Workspace window ready to show.');
-      workspaceWindow.show();
-      workspaceWindow.focus();
-    }
-  });
-
-  workspaceWindow.webContents.on('did-fail-load', (_event, errorCode, errorDescription) => {
-    writeBridgeLog(`Workspace window failed to load: ${errorCode} ${errorDescription}`);
-  });
-
-  return workspaceWindow;
 }
 
 function createWindow() {
@@ -221,6 +230,7 @@ function createWindow() {
     minWidth: 1180,
     minHeight: 760,
     resizable: true,
+    show: false,
     title: 'MessageBackup',
     backgroundColor: '#05060a',
     webPreferences: {
@@ -233,12 +243,17 @@ function createWindow() {
 
   attachWindowOpenHandler(mainWindow, mainWindow);
 
-  void showAppropriateView();
+  mainWindow.once('ready-to-show', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.show();
+      mainWindow.focus();
+    }
+  });
+
+  void loadNativeApp();
 
   mainWindow.on('closed', () => {
-    if (workspaceWindow && !workspaceWindow.isDestroyed()) {
-      workspaceWindow.close();
-    }
+    closeLoginPopup();
     mainWindow = null;
   });
 }
@@ -371,10 +386,7 @@ ipcMain.handle('auth-continue-guest', async () => {
 ipcMain.handle('auth-sign-out', async () => {
   try {
     const state = await authService.signOut();
-    if (workspaceWindow && !workspaceWindow.isDestroyed()) {
-      workspaceWindow.close();
-    }
-    await loadHostedLogin({ signOutFirst: true });
+    closeLoginPopup();
     notifyAuthState(state);
     return { ok: true, state };
   } catch (err) {
@@ -382,13 +394,18 @@ ipcMain.handle('auth-sign-out', async () => {
   }
 });
 
-ipcMain.handle('auth-show-hosted-login', async (event, options = {}) => {
+ipcMain.handle('auth-show-login-popup', async (event, options = {}) => {
   try {
-    await loadHostedLogin(options);
+    await showLoginPopup(options);
     return { ok: true };
   } catch (err) {
     return { ok: false, error: err.message || String(err) };
   }
+});
+
+ipcMain.handle('auth-close-login-popup', async () => {
+  closeLoginPopup();
+  return { ok: true };
 });
 
 ipcMain.handle('auth-adopt-remote-session', async (event, payload) => {
@@ -396,6 +413,8 @@ ipcMain.handle('auth-adopt-remote-session', async (event, payload) => {
     writeBridgeLog(`Adopting hosted session for user ${payload?.userId || 'unknown'}.`);
     const state = await authService.adoptRemoteSession(payload);
     notifyAuthState(state);
+    closeLoginPopup();
+    focusMainWindow();
     return { ok: true, state };
   } catch (err) {
     writeBridgeLog(`Hosted session adoption failed: ${err.message || String(err)}`);
@@ -406,20 +425,8 @@ ipcMain.handle('auth-adopt-remote-session', async (event, payload) => {
 ipcMain.handle('auth-open-local-workspace', async () => {
   try {
     const state = await authService.getAuthState();
-    writeBridgeLog(`Open local workspace requested. Authenticated=${state.authenticated ? 'yes' : 'no'}`);
-    if (!state.authenticated) {
-      writeBridgeLog('Hosted auth handoff is not ready yet. Opening local workspace anyway.');
-    }
-
-    const windowRef = createWorkspaceWindow();
-    await loadNativeApp();
+    focusMainWindow();
     notifyAuthState(state);
-    if (windowRef && !windowRef.isDestroyed()) {
-      if (windowRef.isVisible()) {
-        windowRef.focus();
-      }
-    }
-    writeBridgeLog('Local workspace opened successfully.');
     return { ok: true, state };
   } catch (err) {
     writeBridgeLog(`auth-open-local-workspace failed: ${err.message || String(err)}`);
@@ -429,7 +436,6 @@ ipcMain.handle('auth-open-local-workspace', async () => {
 
 ipcMain.handle('auth-force-open-local-workspace', async () => {
   try {
-    writeBridgeLog('Force-open local workspace requested.');
     const state = await authService.getAuthState().catch(() => ({
       authenticated: false,
       authAvailable: true,
@@ -438,13 +444,8 @@ ipcMain.handle('auth-force-open-local-workspace', async () => {
       userId: 'guest-local'
     }));
 
-    const windowRef = createWorkspaceWindow();
-    await loadNativeApp();
+    focusMainWindow();
     notifyAuthState(state);
-    if (windowRef && !windowRef.isDestroyed() && windowRef.isVisible()) {
-      windowRef.focus();
-    }
-    writeBridgeLog('Force-open local workspace completed.');
     return { ok: true, state };
   } catch (err) {
     writeBridgeLog(`Force-open local workspace failed: ${err.message || String(err)}`);
@@ -456,13 +457,9 @@ ipcMain.handle('auth-open-local-workspace-with-session', async (event, payload) 
   try {
     writeBridgeLog(`Atomic open requested for hosted user ${payload?.userId || 'unknown'}.`);
     const state = await authService.adoptRemoteSession(payload);
-    const windowRef = createWorkspaceWindow();
-    await loadNativeApp();
+    closeLoginPopup();
+    focusMainWindow();
     notifyAuthState(state);
-    if (windowRef && !windowRef.isDestroyed() && windowRef.isVisible()) {
-      windowRef.focus();
-    }
-    writeBridgeLog('Atomic open completed successfully.');
     return { ok: true, state };
   } catch (err) {
     writeBridgeLog(`Atomic open failed: ${err.message || String(err)}`);

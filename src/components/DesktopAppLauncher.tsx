@@ -31,6 +31,8 @@ export default function DesktopAppLauncher({ theme = 'dark', userId }: DesktopAp
   const consoleBg = isDark ? 'bg-[#0d1321] border-slate-800' : 'bg-slate-900 border-slate-800 text-slate-200';
   const isRunningInElectron = typeof window !== 'undefined' &&
     (window.navigator.userAgent.toLowerCase().includes('electron') || Boolean(window.electronAPI?.openLocalWorkspace) || Boolean(window.electron));
+  const isLoginPopup = typeof window !== 'undefined' &&
+    new URLSearchParams(window.location.search).get('loginPopup') === '1';
 
   const appendLog = (message: string) => {
     setLogs((prev) => [...prev, `[${new Date().toLocaleTimeString()}] ${message}`]);
@@ -97,12 +99,12 @@ export default function DesktopAppLauncher({ theme = 'dark', userId }: DesktopAp
   };
 
   useEffect(() => {
-    if (!isRunningInElectron || completed || loading) {
+    if (!isRunningInElectron || isLoginPopup || completed || loading) {
       return;
     }
 
     void launchDesktopApp(true);
-  }, [isRunningInElectron, userId]);
+  }, [isRunningInElectron, isLoginPopup, userId]);
 
   // Safe manual file selector handling
   const handleManualFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
