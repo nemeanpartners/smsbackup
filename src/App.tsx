@@ -28,6 +28,11 @@ export default function App() {
   });
   const isLoginPopup = typeof window !== 'undefined' &&
     new URLSearchParams(window.location.search).get('loginPopup') === '1';
+  const isDesktopMode = typeof window !== 'undefined' &&
+    new URLSearchParams(window.location.search).get('desktop') === '1';
+  const isElectronHost = typeof window !== 'undefined' &&
+    window.navigator.userAgent.toLowerCase().includes('electron');
+  const isDesktopLoginPopup = isLoginPopup || (isDesktopMode && isElectronHost);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -173,13 +178,36 @@ export default function App() {
     );
   }
 
-  if (isLoginPopup && currentUser) {
+  if (isDesktopLoginPopup && currentUser) {
     return (
-      <div className="min-h-screen bg-[#0b0f19] flex flex-col items-center justify-center p-6">
-        <div className="max-w-sm text-center space-y-3">
-          <RefreshCw className="w-8 h-8 text-emerald-400 mx-auto" />
-          <p className="text-slate-200 font-semibold">Signed in successfully</p>
-          <p className="text-slate-400 text-sm">Returning to the local SMS desktop app…</p>
+      <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
+        <header className="flex items-center justify-between px-5 py-4 border-b border-slate-200 bg-white shadow-sm">
+          <div>
+            <h1 className="text-sm font-bold text-slate-800">MessageBackup Sign In</h1>
+            <p className="text-[11px] text-slate-400">Optional account sync for export counts</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => window.electronAPI?.closeLoginPopup?.()}
+            className="text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg transition"
+          >
+            Close
+          </button>
+        </header>
+
+        <div className="flex-1 p-6 max-w-xl mx-auto w-full space-y-4">
+          <div className="bg-white border border-slate-200/80 shadow-sm rounded-2xl p-5 text-center">
+            <CheckCircle className="w-8 h-8 text-emerald-500 mx-auto mb-3" />
+            <h2 className="text-lg font-bold text-slate-800">Signed in successfully</h2>
+            <p className="text-xs text-slate-500 mt-2">
+              {userProfile?.email || currentUser.email || 'Account connected'}
+            </p>
+            <p className="text-xs text-slate-500 mt-3 leading-relaxed">
+              Open the local desktop app below, or close this window to keep using MessageBackup without syncing.
+            </p>
+          </div>
+
+          <DesktopAppLauncher theme="light" userId={currentUser.uid} hideTerminal />
         </div>
       </div>
     );
@@ -188,12 +216,27 @@ export default function App() {
   // Not signed in -> gate entry
   if (!currentUser) {
     return (
-      <LoginGate 
-        onSuccess={() => {
-          // Success handled via listener
-        }} 
-        onOfflineBypass={handleOfflineBypass}
-      />
+      <div className="min-h-screen bg-[#0b0f19] flex flex-col">
+        {isDesktopLoginPopup && (
+          <div className="flex justify-end px-4 py-3 border-b border-slate-800/80 bg-[#111827]">
+            <button
+              type="button"
+              onClick={() => window.electronAPI?.closeLoginPopup?.()}
+              className="text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg transition"
+            >
+              Close
+            </button>
+          </div>
+        )}
+        <div className="flex-1">
+          <LoginGate
+            onSuccess={() => {
+              // Success handled via listener
+            }}
+            onOfflineBypass={handleOfflineBypass}
+          />
+        </div>
+      </div>
     );
   }
 

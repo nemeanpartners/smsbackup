@@ -5,6 +5,7 @@ declare global {
   interface Window {
     electronAPI?: {
       openLocalWorkspace?: () => Promise<{ ok: boolean; error?: string }>;
+      closeLoginPopup?: () => Promise<{ ok: boolean }>;
     };
     electron?: unknown;
   }
@@ -12,9 +13,10 @@ declare global {
 interface DesktopAppLauncherProps {
   theme?: 'light' | 'dark';
   userId: string;
+  hideTerminal?: boolean;
 }
 
-export default function DesktopAppLauncher({ theme = 'dark', userId }: DesktopAppLauncherProps) {
+export default function DesktopAppLauncher({ theme = 'dark', userId, hideTerminal = false }: DesktopAppLauncherProps) {
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<string>('');
   const [logs, setLogs] = useState<string[]>([]);
@@ -33,8 +35,14 @@ export default function DesktopAppLauncher({ theme = 'dark', userId }: DesktopAp
     (window.navigator.userAgent.toLowerCase().includes('electron') || Boolean(window.electronAPI?.openLocalWorkspace) || Boolean(window.electron));
   const isLoginPopup = typeof window !== 'undefined' &&
     new URLSearchParams(window.location.search).get('loginPopup') === '1';
+  const isDesktopMode = typeof window !== 'undefined' &&
+    new URLSearchParams(window.location.search).get('desktop') === '1';
+  const shouldHideTerminal = hideTerminal || isLoginPopup || (isRunningInElectron && isDesktopMode);
 
   const appendLog = (message: string) => {
+    if (shouldHideTerminal) {
+      return;
+    }
     setLogs((prev) => [...prev, `[${new Date().toLocaleTimeString()}] ${message}`]);
   };
 
@@ -199,8 +207,8 @@ export default function DesktopAppLauncher({ theme = 'dark', userId }: DesktopAp
       </div>
 
       {/* MANUAL SYNC TRIGGER & CONSOLE */}
-      {(loading || logs.length > 0) && (
-        <div className="mt-5 space-y-3">
+      {!shouldHideTerminal && (loading || logs.length > 0) && (
+        <div id="desktop-terminal-log-panel" className="mt-5 space-y-3">
           <div className="flex items-center justify-between text-xs font-mono">
             <span className={textSub}>Live Process Terminal Log:</span>
             <span className="text-blue-500 font-bold animate-pulse">{status}</span>
@@ -229,6 +237,7 @@ export default function DesktopAppLauncher({ theme = 'dark', userId }: DesktopAp
       )}
 
       {/* WEB FILE-SYSTEM CHAT.DB SELECTOR FALLBACK */}
+      {!shouldHideTerminal && (
       <div className="mt-4 pt-4 border-t border-slate-800/20 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
         <span className={textSub}>Don't have the Mac App wrapper open? Select database backup manually:</span>
         <div>
@@ -254,6 +263,14 @@ export default function DesktopAppLauncher({ theme = 'dark', userId }: DesktopAp
           </button>
         </div>
       </div>
+      )}
+
+      {shouldHideTerminal && completed && (
+        <div className="mt-4 p-3.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 rounded-xl flex items-center gap-2 text-xs">
+          <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+          <span>Local desktop app opened. You can close this sign-in window.</span>
+        </div>
+      )}
     </div>
   );
 }

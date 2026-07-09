@@ -3,42 +3,45 @@
 
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>MessageBackup</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 
-<body>
+<body class="workspace-body">
   <div class="app-root">
     <div class="gradient-orbit gradient-orbit-1"></div>
     <div class="gradient-orbit gradient-orbit-2"></div>
 
     <div class="app-layout">
       <aside class="sidebar">
-        <div class="sidebar-brand">
-          <div class="logo-circle">
-            <span>↔︎</span>
+        <div class="sidebar-scroll">
+          <div class="sidebar-brand">
+            <div class="logo-circle">
+              <span>↔︎</span>
+            </div>
+            <div>
+              <h1>MessageBackup</h1>
+              <p>Local SMS export</p>
+            </div>
           </div>
-          <div>
-            <h1>MessageBackup</h1>
-            <p>Local SMS export</p>
+
+          <div class="sidebar-section">
+            <div class="sidebar-label">SMS Backup</div>
+            <p class="sidebar-copy">Browse your iPhone Messages database and export conversation XML on this Mac.</p>
+            <button id="pickChatDb" class="btn primary sidebar-browse-btn">Browse DB folder…</button>
+            <div id="chatDbPath" class="sidebar-path">No database selected</div>
           </div>
-        </div>
 
-        <div class="sidebar-section">
-          <div class="sidebar-label">SMS Backup</div>
-          <p class="sidebar-copy">Browse your iPhone Messages database and export conversation XML on this Mac.</p>
-          <button id="pickChatDb" class="btn primary sidebar-browse-btn">Browse DB folder…</button>
-          <div id="chatDbPath" class="sidebar-path">No database selected</div>
+          <nav class="sidebar-section">
+            <div class="sidebar-label">Workflow</div>
+            <a class="sidebar-nav-item" href="#databaseSection">1. Find database</a>
+            <a class="sidebar-nav-item" href="#contactsSection">2. Load contacts</a>
+            <a class="sidebar-nav-item" href="#previewSection">3. Preview chat</a>
+            <a class="sidebar-nav-item" href="#extractSection">4. Extract conversation</a>
+            <a class="sidebar-nav-item" href="#outputSection">5. Save XML</a>
+          </nav>
         </div>
-
-        <nav class="sidebar-section">
-          <div class="sidebar-label">Workflow</div>
-          <a class="sidebar-nav-item" href="#databaseSection">1. Find database</a>
-          <a class="sidebar-nav-item" href="#contactsSection">2. Load contacts</a>
-          <a class="sidebar-nav-item" href="#previewSection">3. Preview chat</a>
-          <a class="sidebar-nav-item" href="#extractSection">4. Extract conversation</a>
-          <a class="sidebar-nav-item" href="#outputSection">5. Save XML</a>
-        </nav>
 
         <div class="sidebar-footer">
           <button id="openLoginButton" class="sidebar-login-btn" type="button" aria-label="Sign in to save export count">

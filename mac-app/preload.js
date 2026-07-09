@@ -1,11 +1,13 @@
 const { contextBridge, ipcRenderer } = require('electron');
-const firebaseConfig = require('./firebase-config.json');
 
 contextBridge.exposeInMainWorld('electronAPI', {
   getAuthState: () => ipcRenderer.invoke('auth-get-state'),
   signOut: () => ipcRenderer.invoke('auth-sign-out'),
   recordExport: () => ipcRenderer.invoke('auth-record-export'),
   showLoginPopup: (options = {}) => ipcRenderer.invoke('auth-show-login-popup', options),
+  closeLoginPopup: () => ipcRenderer.invoke('auth-close-login-popup'),
+  getLoginPopupConfig: (options = {}) => ipcRenderer.invoke('get-login-popup-config', options),
+  openWorkspace: () => ipcRenderer.invoke('open-workspace'),
   openLocalWorkspace: () => ipcRenderer.invoke('auth-open-local-workspace'),
   onAuthStateChanged: (callback) => {
     const listener = (_event, state) => callback(state);
@@ -24,16 +26,20 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('get-thread', { chatDbPath, chatDbBookmark, handle })
 });
 
-async function initHostedLoginBridge() {
-  const params = new URLSearchParams(window.location.search);
-  const isElectronContainer = typeof navigator !== 'undefined' && navigator.userAgent.toLowerCase().includes('electron');
-  const isDesktopMode = params.get('desktop') === '1' || isElectronContainer;
-  const isLoginPopup = params.get('loginPopup') === '1';
+const HOSTED_LOGIN_URL = 'https://message-backup-web-dashboard-206706021143.asia-southeast1.run.app';
+const hostedOrigin = new URL(HOSTED_LOGIN_URL).origin;
 
-  if (!isDesktopMode || !isLoginPopup) {
+async function initHostedLoginBridge() {
+  if (window.location.origin !== hostedOrigin) {
     return;
   }
 
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('loginPopup') !== '1') {
+    return;
+  }
+
+  const firebaseConfig = require('./firebase-config.json');
   const [{ initializeApp, getApps, getApp }, { getAuth, onAuthStateChanged, signOut }] = await Promise.all([
     import('firebase/app'),
     import('firebase/auth')
@@ -72,26 +78,17 @@ async function initHostedLoginBridge() {
     };
   }
 
-  async function deliverSession(user) {
-    if (!user || delivered) {
-      return;
-    }
-
-    const result = await ipcRenderer.invoke('auth-adopt-remote-session', await buildHostedSessionPayload(user));
-    if (!result?.ok) {
-      throw new Error(result?.error || 'Desktop sign-in handoff failed.');
-    }
-
-    delivered = true;
-  }
-
   onAuthStateChanged(auth, async (user) => {
     if (!user || delivered) {
       return;
     }
 
     try {
-      await deliverSession(user);
+      const result = await ipcRenderer.invoke('auth-adopt-remote-session', await buildHostedSessionPayload(user));
+      if (!result?.ok) {
+        throw new Error(result?.error || 'Desktop sign-in handoff failed.');
+      }
+      delivered = true;
     } catch (error) {
       console.error('Failed to hand hosted auth session to desktop app.', error);
     }
@@ -99,3 +96,68 @@ async function initHostedLoginBridge() {
 }
 
 void initHostedLoginBridge();
+
+function injectLoginPopupChrome() {
+  const params = new URLSearchParams(window.location.search);
+  const isDesktopShell = params.get('loginPopup') === '1' || params.get('desktop') === '1';
+  if (!isDesktopShell || !navigator.userAgent.toLowerCase().includes('electron')) {
+    return;
+  }
+
+  const styleId = 'mb-desktop-login-popup-style';
+  if (!document.getElementById(styleId)) {
+    const style = document.createElement('style');
+    style.id = styleId;
+    style.textContent = `
+      #desktop-terminal-log-panel,
+      #desktop-app-launcher-panel .font-mono.text-xs.p-4.rounded-xl.border.h-44,
+      #desktop-app-launcher-panel .font-mono.text-xs.p-4.rounded-xl.border {
+        display: none !important;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  const injectCloseButton = () => {
+    if (!document.body || document.getElementById('mb-login-popup-close')) {
+      return;
+    }
+
+    const closeButton = document.createElement('button');
+    closeButton.id = 'mb-login-popup-close';
+    closeButton.type = 'button';
+    closeButton.textContent = 'Close';
+    closeButton.setAttribute('aria-label', 'Close sign in window');
+    closeButton.style.cssText = [
+      'position:fixed',
+      'top:12px',
+      'right:12px',
+      'z-index:100000',
+      'padding:8px 14px',
+      'border:none',
+      'border-radius:10px',
+      'background:#e2e8f0',
+      'color:#0f172a',
+      'font:600 12px system-ui,-apple-system,sans-serif',
+      'cursor:pointer',
+      'box-shadow:0 8px 24px rgba(0,0,0,.15)'
+    ].join(';');
+    closeButton.addEventListener('click', () => {
+      void ipcRenderer.invoke('auth-close-login-popup');
+    });
+    document.body.appendChild(closeButton);
+  };
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', injectCloseButton);
+  } else {
+    injectCloseButton();
+  }
+
+  new MutationObserver(injectCloseButton).observe(document.documentElement, {
+    childList: true,
+    subtree: true
+  });
+}
+
+injectLoginPopupChrome();

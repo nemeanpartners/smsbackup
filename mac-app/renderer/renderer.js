@@ -27,6 +27,10 @@ let outputBookmark = null;
 let threadCollapsed = false;
 let accountState = null;
 
+function getApi() {
+  return window.electronAPI || null;
+}
+
 function sanitizeForFilename(value) {
   return (value || 'unknown')
     .replace(/[^\dA-Za-z+_-]+/g, '_')
@@ -107,12 +111,18 @@ function applyAuthState(state) {
 }
 
 async function openLoginPopup(message = 'Opening sign-in…') {
+  const api = getApi();
+  if (!api?.showLoginPopup) {
+    setAuthStatus('Sign-in is unavailable in this view.', 'error');
+    return { ok: false };
+  }
+
   setAuthBusy(true);
   setAuthStatus(message);
   try {
-    const result = await window.electronAPI.showLoginPopup();
-    if (!result.ok) {
-      setAuthStatus(result.error || 'Could not open sign-in.', 'error');
+    const result = await api.showLoginPopup();
+    if (!result?.ok) {
+      setAuthStatus(result?.error || 'Could not open sign-in.', 'error');
     }
     return result;
   } finally {
@@ -121,7 +131,13 @@ async function openLoginPopup(message = 'Opening sign-in…') {
 }
 
 async function pickDatabase() {
-  const selected = await window.electronAPI.selectChatDb();
+  const api = getApi();
+  if (!api?.selectChatDb) {
+    setStatus('Desktop bridge unavailable. Restart the app.', 'error');
+    return;
+  }
+
+  const selected = await api.selectChatDb();
   if (!selected) {
     setStatus('No database selected.');
     return;
@@ -147,7 +163,7 @@ async function loadContacts() {
   threadContainer.innerHTML = '<div class="thread-placeholder">Loading contacts…</div>';
 
   try {
-    const result = await window.electronAPI.listContacts(chatDbPath, chatDbBookmark);
+    const result = await getApi().listContacts(chatDbPath, chatDbBookmark);
     if (!result.ok) {
       threadContainer.innerHTML = `<div class="thread-placeholder">Failed to load contacts: ${result.error}</div>`;
       return;
@@ -173,7 +189,7 @@ if (pickChatDbSecondaryButton) {
 
 if (pickOutputButton) {
   pickOutputButton.addEventListener('click', async () => {
-    const selected = await window.electronAPI.selectOutputXml(buildSuggestedFilename());
+    const selected = await getApi().selectOutputXml(buildSuggestedFilename());
     if (!selected) {
       setStatus('Output location unchanged.');
       return;
@@ -217,7 +233,7 @@ if (convertButton) {
     try {
       let output = outputPath;
       if (!output) {
-        const selected = await window.electronAPI.selectOutputXml(buildSuggestedFilename());
+        const selected = await getApi().selectOutputXml(buildSuggestedFilename());
         if (!selected) {
           setStatus('Extraction canceled: no output file selected.', 'error');
           return;
@@ -229,7 +245,7 @@ if (convertButton) {
         outputPathLabel.textContent = selected.path;
       }
 
-      const result = await window.electronAPI.convertThread(
+      const result = await getApi().convertThread(
         chatDbPath,
         handle,
         output,
@@ -242,7 +258,7 @@ if (convertButton) {
         return;
       }
 
-      const exportResult = await window.electronAPI.recordExport();
+      const exportResult = await getApi().recordExport();
       if (exportResult.ok) {
         updateAccountPanel(exportResult.state);
       }
@@ -293,7 +309,7 @@ if (contactSelect) {
     threadContainer.innerHTML = '<div class="thread-placeholder">Loading conversation…</div>';
 
     try {
-      const result = await window.electronAPI.getThread(chatDbPath, handle, chatDbBookmark);
+      const result = await getApi().getThread(chatDbPath, handle, chatDbBookmark);
       if (!result.ok) {
         threadContainer.innerHTML = `<div class="thread-placeholder">Failed to load conversation: ${result.error}</div>`;
         return;
@@ -318,7 +334,7 @@ if (openLoginButton) {
 
 if (logoutButton) {
   logoutButton.addEventListener('click', async () => {
-    const result = await window.electronAPI.signOut();
+    const result = await getApi().signOut();
     if (!result.ok) {
       setAuthStatus(result.error || 'Could not sign out.', 'error');
       return;
@@ -420,15 +436,19 @@ function resetPreview() {
 }
 
 async function bootstrap() {
-  const state = await window.electronAPI.getAuthState();
-  applyAuthState(state);
+  const api = getApi();
+  if (api?.getAuthState) {
+    const state = await api.getAuthState();
+    applyAuthState(state);
+  }
   setStatus('Ready — browse a database to begin.');
 }
 
 void bootstrap();
 
-if (window.electronAPI.onAuthStateChanged) {
-  window.electronAPI.onAuthStateChanged((state) => {
+const api = getApi();
+if (api?.onAuthStateChanged) {
+  api.onAuthStateChanged((state) => {
     applyAuthState(state);
     if (state?.authenticated) {
       setStatus('Signed in. Export counts will sync when you extract XML.', 'success');

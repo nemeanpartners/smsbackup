@@ -3,42 +3,73 @@
 
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>MessageBackup</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 
-<body>
-  <div class="app-root">
+<body class="welcome-body">
+  <div class="welcome-root">
     <div class="gradient-orbit gradient-orbit-1"></div>
     <div class="gradient-orbit gradient-orbit-2"></div>
 
-    <section class="welcome-screen auth-layout">
-      <aside class="auth-intro-panel">
-        <div class="sidebar-header">
-          <div class="welcome-icon">↔︎</div>
+    <div class="welcome-layout">
+      <section class="welcome-hero">
+        <div class="welcome-badge">Local macOS Desktop App</div>
+        <div class="welcome-brand">
+          <div class="logo-circle logo-circle-lg">
+            <span>↔︎</span>
+          </div>
           <div>
             <h1>MessageBackup</h1>
-            <p>Hosted sign-in</p>
+            <p>Export iPhone Messages to XML on your Mac</p>
           </div>
         </div>
 
-        <h2>Open the secure web login</h2>
-        <p>The desktop app now uses your hosted login page. After authentication, MessageBackup will return you to the native Mac app automatically.</p>
-      </aside>
+        <p class="welcome-lead">
+          MessageBackup helps you browse your iPhone Messages database, preview conversations,
+          and export a single thread as XML — entirely on your Mac. Nothing is uploaded unless
+          you choose to sign in and sync your export count.
+        </p>
 
-      <section class="auth-card">
-        <div class="auth-card-header">
-          <h2>Redirecting…</h2>
-          <p>If the hosted page does not open automatically, use the button below.</p>
+        <ul class="welcome-features">
+          <li>Browse your local <code>chat.db</code> file safely</li>
+          <li>Preview conversations before exporting</li>
+          <li>Extract one contact thread to XML</li>
+          <li>Optional account sign-in to track exports</li>
+        </ul>
+
+        <div class="welcome-actions">
+          <button id="continueButton" class="btn accent welcome-continue-btn" type="button">
+            Continue to Local SMS App
+          </button>
+          <p class="welcome-note">You can sign in later from the bottom of the left menu.</p>
+        </div>
+      </section>
+
+      <aside class="welcome-panel">
+        <div class="welcome-panel-card">
+          <h2>How it works</h2>
+          <ol class="welcome-steps">
+            <li>Select your Messages <code>chat.db</code> file</li>
+            <li>Load contacts from the database snapshot</li>
+            <li>Preview a conversation with a contact</li>
+            <li>Export that thread as XML to your chosen folder</li>
+          </ol>
         </div>
 
-        <button id="guestButton" class="btn primary auth-guest-button" type="button">Open hosted login</button>
-        <div id="authStatus" class="status-label">Waiting to open the hosted dashboard…</div>
-      </section>
-    </section>
+        <div class="welcome-panel-card welcome-panel-card-muted">
+          <h3>Privacy first</h3>
+          <p>
+            The local desktop app only reads files you choose. Conversion happens on your Mac.
+            Sign-in is optional and opens the hosted dashboard only if you want account sync.
+          </p>
+        </div>
+      </aside>
+    </div>
   </div>
 
-  <script src="renderer.js"></script>
+  <script src="welcome.js"></script>
 </body>
 
 </html>

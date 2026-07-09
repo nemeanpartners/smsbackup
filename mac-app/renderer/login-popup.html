@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MessageBackup Sign In</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body class="login-popup-body">
+  <header class="login-popup-bar">
+    <div class="login-popup-bar-copy">
+      <strong>MessageBackup Sign In</strong>
+      <span>Optional account sync</span>
+    </div>
+    <button id="closeLoginPopupButton" class="login-popup-close-btn" type="button">Close</button>
+  </header>
+  <webview id="loginWebview" class="login-popup-webview" partition="persist:messagebackup-auth" allowpopups></webview>
+  <script src="login-popup.js"></script>
+</body>
+
+</html>

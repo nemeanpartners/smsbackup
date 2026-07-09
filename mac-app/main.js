@@ -6,6 +6,8 @@ const fs = require('fs');
 const { convertIphoneSmsToXml, convertThreadToXml, listContacts, fetchThreadForHandle } = require('./converter');
 const { createAuthService } = require('./auth');
 
+const HOSTED_LOGIN_URL = 'https://message-backup-web-dashboard-206706021143.asia-southeast1.run.app';
+
 let mainWindow;
 let loginWindow;
 let authService;
@@ -121,14 +123,18 @@ async function withSecurityScopedAccess(bookmark, callback) {
   }
 }
 
+async function loadWelcomeApp() {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  await mainWindow.loadFile(path.join(__dirname, 'renderer', 'welcome.html'));
+}
+
 async function loadNativeApp() {
   if (!mainWindow || mainWindow.isDestroyed()) return;
   await mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
 }
 
 async function buildLoginUrl(options = {}) {
-  const baseUrl = await startPortalServer();
-  const url = new URL(baseUrl);
+  const url = new URL(HOSTED_LOGIN_URL);
   url.searchParams.set('desktop', '1');
   url.searchParams.set('loginPopup', '1');
   if (options.signOutFirst) {
@@ -144,10 +150,11 @@ async function showLoginPopup(options = {}) {
   }
 
   loginWindow = new BrowserWindow({
-    width: 520,
-    height: 760,
+    width: 540,
+    height: 780,
     resizable: true,
     modal: true,
+    closable: true,
     parent: mainWindow,
     show: false,
     title: 'MessageBackup Sign In',
@@ -156,6 +163,7 @@ async function showLoginPopup(options = {}) {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
+      webviewTag: true,
       partition: 'persist:messagebackup-auth'
     }
   });
@@ -164,6 +172,7 @@ async function showLoginPopup(options = {}) {
 
   loginWindow.on('closed', () => {
     loginWindow = null;
+    focusMainWindow();
   });
 
   loginWindow.once('ready-to-show', () => {
@@ -173,7 +182,7 @@ async function showLoginPopup(options = {}) {
     }
   });
 
-  await loginWindow.loadURL(await buildLoginUrl(options));
+  await loginWindow.loadFile(path.join(__dirname, 'renderer', 'login-popup.html'));
   return loginWindow;
 }
 
@@ -250,7 +259,7 @@ function createWindow() {
     }
   });
 
-  void loadNativeApp();
+  void loadWelcomeApp();
 
   mainWindow.on('closed', () => {
     closeLoginPopup();
@@ -352,6 +361,23 @@ ipcMain.handle('convert-sms', async (event, { chatDbPath, chatDbBookmark, output
   }
 });
 
+ipcMain.handle('get-login-popup-config', async (event, options = {}) => {
+  return {
+    url: await buildLoginUrl(options),
+    preloadPath: path.join(__dirname, 'preload.js')
+  };
+});
+
+ipcMain.handle('open-workspace', async () => {
+  try {
+    await loadNativeApp();
+    focusMainWindow();
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err.message || String(err) };
+  }
+});
+
 ipcMain.handle('auth-get-state', async () => {
   return authService.getAuthState();
 });
@@ -425,6 +451,7 @@ ipcMain.handle('auth-adopt-remote-session', async (event, payload) => {
 ipcMain.handle('auth-open-local-workspace', async () => {
   try {
     const state = await authService.getAuthState();
+    await loadNativeApp();
     focusMainWindow();
     notifyAuthState(state);
     return { ok: true, state };
@@ -444,6 +471,7 @@ ipcMain.handle('auth-force-open-local-workspace', async () => {
       userId: 'guest-local'
     }));
 
+    await loadNativeApp();
     focusMainWindow();
     notifyAuthState(state);
     return { ok: true, state };
@@ -458,6 +486,7 @@ ipcMain.handle('auth-open-local-workspace-with-session', async (event, payload) 
     writeBridgeLog(`Atomic open requested for hosted user ${payload?.userId || 'unknown'}.`);
     const state = await authService.adoptRemoteSession(payload);
     closeLoginPopup();
+    await loadNativeApp();
     focusMainWindow();
     notifyAuthState(state);
     return { ok: true, state };
