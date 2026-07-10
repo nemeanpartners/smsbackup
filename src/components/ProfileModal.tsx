@@ -72,7 +72,14 @@ export function ProfileModal({
     }
   };
 
+  const isGuest = currentUser.isAnonymous || currentUser.uid === 'offline-guest';
+
   const handleConfirmDeleteAccount = async () => {
+    if (isGuest) {
+      setDeleteError('Guest users cannot delete accounts.');
+      return;
+    }
+
     if (deleteConfirmationText !== 'DELETE') {
       setDeleteError('Please type "DELETE" to confirm.');
       return;
@@ -103,11 +110,11 @@ export function ProfileModal({
     }
   };
 
-  const accountType = currentUser.isAnonymous 
-    ? 'Guest Mode (No Password)' 
+  const accountType = isGuest 
+    ? 'guest' 
     : currentUser.providerData[0]?.providerId === 'google.com'
-      ? 'Google Authentication'
-      : 'Email / Password';
+      ? 'google'
+      : 'email/password';
 
   const modalBg = isAdmin ? 'bg-[#161f30]' : 'bg-white';
   const textPrimary = isAdmin ? 'text-slate-100' : 'text-slate-800';
@@ -208,7 +215,7 @@ export function ProfileModal({
 
             <div className="w-full grid grid-cols-2 gap-3 text-left border-t border-slate-500/10 pt-4">
               <div>
-                <span className="text-[10px] uppercase tracking-wider font-semibold text-slate-500 font-mono block">Auth Provider</span>
+                <span className="text-[10px] uppercase tracking-wider font-semibold text-slate-500 font-mono block">Signed In With</span>
                 <span className={`text-xs font-semibold ${textPrimary}`}>{accountType}</span>
               </div>
               <div>
@@ -220,27 +227,6 @@ export function ProfileModal({
             </div>
           </div>
 
-          {/* Connected Token (Only for Customer side or debug visibility) */}
-          {!isAdmin && (
-            <div className={`p-4 rounded-xl ${cardBg} border ${borderCol} space-y-2`}>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Key className="w-4 h-4 text-blue-400" />
-                  <span className={`text-xs font-bold ${textPrimary}`}>Companion Sync API Token</span>
-                </div>
-                <span className="px-1.5 py-0.5 text-[9px] font-mono bg-emerald-500/15 text-emerald-500 rounded border border-emerald-500/10 uppercase font-semibold">Live</span>
-              </div>
-              <p className="text-[11px] text-slate-400">
-                Use this connection API token to link your iOS or Android wrapper companion app securely:
-              </p>
-              <div className="bg-black/30 border border-slate-700/50 rounded-lg p-2.5 flex items-center justify-between">
-                <code className="text-[11px] font-mono text-amber-400 font-bold select-all overflow-x-auto whitespace-nowrap scrollbar-none pr-3">
-                  {userProfile.apiToken}
-                </code>
-              </div>
-            </div>
-          )}
-
           {/* Danger Zone */}
           <div className="border border-red-500/20 bg-red-500/5 rounded-xl p-5 space-y-3">
             <h4 className="text-sm font-bold text-red-400 flex items-center gap-2">
@@ -248,10 +234,14 @@ export function ProfileModal({
               Account Security Danger Zone
             </h4>
             <p className="text-xs text-slate-400 leading-relaxed">
-              If you delete your companion account, all macOS, iOS, or Android message backups, synced `.xml` schemas, chat histories, attachments, and settings stored in Firestore will be permanently deleted. This operation is irreversible.
+              if you delete you account  this will lead to your existing account data to be deleted permanently. This action cannot be undone.
             </p>
 
-            {showDeleteConfirm ? (
+            {isGuest ? (
+              <p className="text-xs text-amber-500 font-medium">
+                Guest users cannot delete their account as its a guest.
+              </p>
+            ) : showDeleteConfirm ? (
               <div className="space-y-3 bg-red-950/20 border border-red-500/30 rounded-lg p-4 animate-in slide-in-from-top-2 duration-150">
                 <p className="text-xs text-red-300 font-bold">
                   Are you absolutely sure? This will immediately purge your entire backup record history.

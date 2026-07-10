@@ -164,7 +164,7 @@ export function LoginGate({ onSuccess, onOfflineBypass }: LoginGateProps) {
               </span>
               <input
                 type="email"
-                placeholder="steve@apple.com"
+                placeholder="example@com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full bg-[#0d1321] border border-slate-700/60 rounded-lg py-2.5 pl-10 pr-4 text-slate-200 text-sm placeholder-slate-500 focus:outline-none focus:border-blue-500/80 transition"

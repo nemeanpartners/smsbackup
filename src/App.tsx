@@ -209,8 +209,8 @@ export default function App() {
           </div>
         </header>
 
-        <div className="flex-1 p-4 space-y-4 overflow-y-auto">
-          <div className="bg-white border border-slate-200/80 shadow-xl rounded-2xl p-5 text-center">
+        <div className="flex-1 p-4 flex items-center justify-center">
+          <div className="bg-white border border-slate-200/80 shadow-xl rounded-2xl p-6 text-center max-w-sm w-full mx-auto">
             {userProfile && (
               <div className="flex flex-col items-center mb-5">
                 {userProfile.photoURL ? (
@@ -251,8 +251,6 @@ export default function App() {
               View Account & Profile Page
             </button>
           </div>
-
-          <DesktopAppLauncher theme="light" userId={currentUser.uid} hideTerminal />
         </div>
 
         {userProfile && (
@@ -314,52 +312,46 @@ export default function App() {
         </header>
 
         {/* Customer Main Panel */}
-        <div className="flex-1 max-w-5xl w-full mx-auto p-6 flex flex-col items-center justify-center space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-6 w-full items-start">
-            <div className="md:col-span-5 bg-white border border-slate-200/80 shadow-xl rounded-2xl p-6 text-center">
-              {userProfile && (
-                <div className="flex flex-col items-center mb-6">
-                  {userProfile.photoURL ? (
-                    <img 
-                      src={userProfile.photoURL} 
-                      alt="avatar" 
-                      referrerPolicy="no-referrer"
-                      className="w-16 h-16 rounded-full border-4 border-slate-100 shadow-md mb-3" 
-                    />
-                  ) : (
-                    <div className="w-16 h-16 rounded-full bg-blue-50 border-4 border-slate-100 shadow-md text-blue-600 flex items-center justify-center text-2xl font-black mb-3 select-none">
-                      {userProfile.displayName ? userProfile.displayName.substring(0, 1).toUpperCase() : 'C'}
-                    </div>
-                  )}
-                  <h2 className="text-lg font-bold text-slate-800 leading-tight">{userProfile.displayName || 'Customer'}</h2>
-                  <p className="text-[11px] text-slate-400 font-mono mt-0.5">{userProfile.email || 'anonymous-session@backup.local'}</p>
-                </div>
-              )}
-              
-              <div className="bg-emerald-50 text-emerald-800 text-xs font-medium border border-emerald-100 rounded-xl px-4 py-3 mb-5 flex items-start gap-2.5 text-left">
-                <CheckCircle className="w-4 h-4 text-emerald-600 mt-0.5 flex-shrink-0" />
-                <div>
-                  <p className="font-semibold text-emerald-900 text-xs">Successfully Connected</p>
-                  <p className="text-[10px] text-emerald-700 mt-0.5">You have authenticated this session.</p>
-                </div>
+        <div className="flex-1 max-w-md w-full mx-auto p-6 flex flex-col items-center justify-center space-y-6">
+          <div className="bg-white border border-slate-200/80 shadow-xl rounded-2xl p-6 text-center w-full">
+            {userProfile && (
+              <div className="flex flex-col items-center mb-6">
+                {userProfile.photoURL ? (
+                  <img 
+                    src={userProfile.photoURL} 
+                    alt="avatar" 
+                    referrerPolicy="no-referrer"
+                    className="w-16 h-16 rounded-full border-4 border-slate-100 shadow-md mb-3" 
+                  />
+                ) : (
+                  <div className="w-16 h-16 rounded-full bg-blue-50 border-4 border-slate-100 shadow-md text-blue-600 flex items-center justify-center text-2xl font-black mb-3 select-none">
+                    {userProfile.displayName ? userProfile.displayName.substring(0, 1).toUpperCase() : 'C'}
+                  </div>
+                )}
+                <h2 className="text-lg font-bold text-slate-800 leading-tight">{userProfile.displayName || 'Customer'}</h2>
+                <p className="text-[11px] text-slate-400 font-mono mt-0.5">{userProfile.email || 'anonymous-session@backup.local'}</p>
               </div>
-
-              <p className="text-xs text-slate-500 leading-relaxed mb-6">
-                Your device synchronization credentials are live. You can close this browser tab, or view your profile settings to edit your account name and manage stored companion backups.
-              </p>
-
-              <button
-                onClick={() => setIsProfileOpen(true)}
-                className="w-full bg-slate-900 hover:bg-slate-800 text-white font-semibold py-2 px-4 rounded-xl transition shadow-lg shadow-slate-900/10 flex items-center justify-center gap-2 text-xs"
-              >
-                <UserIcon className="w-3.5 h-3.5" />
-                View Account & Profile Page
-              </button>
+            )}
+            
+            <div className="bg-emerald-50 text-emerald-800 text-xs font-medium border border-emerald-100 rounded-xl px-4 py-3 mb-5 flex items-start gap-2.5 text-left">
+              <CheckCircle className="w-4 h-4 text-emerald-600 mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="font-semibold text-emerald-900 text-xs">Successfully Connected</p>
+                <p className="text-[10px] text-emerald-700 mt-0.5">You have authenticated this session.</p>
+              </div>
             </div>
 
-            <div className="md:col-span-7">
-              <DesktopAppLauncher theme="light" userId={currentUser.uid} />
-            </div>
+            <p className="text-xs text-slate-500 leading-relaxed mb-6">
+              Your device synchronization credentials are live. You can close this browser tab, or view your profile settings to edit your account name and manage stored companion backups.
+            </p>
+
+            <button
+              onClick={() => setIsProfileOpen(true)}
+              className="w-full bg-slate-900 hover:bg-slate-800 text-white font-semibold py-2 px-4 rounded-xl transition shadow-lg shadow-slate-900/10 flex items-center justify-center gap-2 text-xs"
+            >
+              <UserIcon className="w-3.5 h-3.5" />
+              View Account & Profile Page
+            </button>
           </div>
         </div>
 
@@ -477,17 +469,6 @@ export default function App() {
         <StatsRow 
           backups={backups} 
         />
-
-        {/* Desktop App Launcher */}
-        <DesktopAppLauncher theme="dark" userId={currentUser.uid} />
-
-        {/* Access tokens and instructions */}
-        {userProfile && (
-          <TokenCard
-            userProfile={userProfile}
-            onProfileUpdated={(updated) => setUserProfile(updated)}
-          />
-        )}
 
         {/* Backups registry row */}
         <BackupGrid
