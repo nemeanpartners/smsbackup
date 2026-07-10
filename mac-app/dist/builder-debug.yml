@@ -4,6 +4,10 @@ arm64:
     - '!build{,/**/*}'
     - '!dist{,/**/*}'
     - auth.js
+    - chat-db-access.js
+    - phone-utils.js
+    - message-body.js
+    - vendor/**/*
     - main.js
     - preload.js
     - renderer/**/*
@@ -21,6 +25,10 @@ arm64:
   nodeModuleFilePatterns:
     - '**/*'
     - auth.js
+    - chat-db-access.js
+    - phone-utils.js
+    - message-body.js
+    - vendor/**/*
     - main.js
     - preload.js
     - renderer/**/*

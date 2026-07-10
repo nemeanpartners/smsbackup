@@ -3,8 +3,17 @@ const http = require('http');
 const path = require('path');
 const os = require('os');
 const fs = require('fs');
-const { convertIphoneSmsToXml, convertThreadToXml, listContacts, fetchThreadForHandle } = require('./converter');
+const { spawn } = require('child_process');
+const { convertIphoneSmsToXml, convertThreadToXml, listContacts, listOwnNumberSuggestions, fetchThreadForHandle } = require('./converter');
 const { createAuthService } = require('./auth');
+const {
+  getMessagesDir,
+  getDefaultChatDbPath,
+  isReadableFile,
+  findChatDbInFolder,
+  saveStoredChatDbSelection,
+  resolveChatDbAutomatically
+} = require('./chat-db-access');
 
 const HOSTED_LOGIN_URL = 'https://message-backup-web-dashboard-206706021143.asia-southeast1.run.app';
 
@@ -99,7 +108,7 @@ async function startPortalServer() {
 }
 
 function getSecurityScopedDialogOptions() {
-  if (!process.mas) {
+  if (process.platform !== 'darwin') {
     return {};
   }
 
@@ -108,8 +117,21 @@ function getSecurityScopedDialogOptions() {
   };
 }
 
+function getDialogParentWindow() {
+  if (mainWindow && !mainWindow.isDestroyed() && mainWindow.isVisible()) {
+    return mainWindow;
+  }
+
+  const focused = BrowserWindow.getFocusedWindow();
+  if (focused && !focused.isDestroyed()) {
+    return focused;
+  }
+
+  return mainWindow;
+}
+
 async function withSecurityScopedAccess(bookmark, callback) {
-  if (!process.mas || !bookmark) {
+  if (process.platform !== 'darwin' || !bookmark) {
     return callback();
   }
 
@@ -121,6 +143,122 @@ async function withSecurityScopedAccess(bookmark, callback) {
       stopAccessing();
     }
   }
+}
+
+function finalizeChatDbSelection(selection) {
+  if (!selection?.path) {
+    return null;
+  }
+
+  saveStoredChatDbSelection(app.getPath('userData'), selection);
+  return selection;
+}
+
+function tryResolveChatDb(userDataPath) {
+  const stored = resolveChatDbAutomatically(userDataPath);
+  if (!stored) {
+    return null;
+  }
+
+  if (stored.bookmark && process.platform === 'darwin') {
+    const stopAccessing = app.startAccessingSecurityScopedResource(stored.bookmark);
+    try {
+      if (isReadableFile(stored.path)) {
+        return stored;
+      }
+    } finally {
+      if (typeof stopAccessing === 'function') {
+        stopAccessing();
+      }
+    }
+    return null;
+  }
+
+  return isReadableFile(stored.path) ? stored : null;
+}
+
+async function pickChatDbFileDialog() {
+  const messagesDir = getMessagesDir();
+  const defaultChatDbPath = getDefaultChatDbPath();
+
+  const result = await dialog.showOpenDialog(getDialogParentWindow(), {
+    title: 'Allow Clarified to access your Messages database',
+    message: 'Select chat.db so macOS can grant read access. The app only reads the file you choose.',
+    buttonLabel: 'Allow Access',
+    defaultPath: isReadableFile(defaultChatDbPath) ? defaultChatDbPath : messagesDir,
+    properties: ['openFile'],
+    filters: [
+      { name: 'SQLite Databases', extensions: ['db', 'sqlite', 'sqlite3'] },
+      { name: 'All Files', extensions: ['*'] }
+    ],
+    ...getSecurityScopedDialogOptions()
+  });
+
+  if (result.canceled || !result.filePaths.length) {
+    return null;
+  }
+
+  return finalizeChatDbSelection({
+    path: result.filePaths[0],
+    bookmark: result.bookmarks?.[0] ?? null,
+    source: 'file'
+  });
+}
+
+async function pickChatDbFromFolderDialog() {
+  const messagesDir = getMessagesDir();
+
+  const result = await dialog.showOpenDialog(getDialogParentWindow(), {
+    title: 'Select your Messages database folder',
+    message: 'Choose the Messages folder (or any folder containing chat.db). macOS will ask you to allow access.',
+    buttonLabel: 'Use Folder',
+    defaultPath: messagesDir,
+    properties: ['openDirectory', 'createDirectory'],
+    ...getSecurityScopedDialogOptions()
+  });
+
+  if (result.canceled || !result.filePaths.length) {
+    return null;
+  }
+
+  const folderPath = result.filePaths[0];
+  const bookmark = result.bookmarks?.[0] ?? null;
+  let chatDbPath = findChatDbInFolder(folderPath);
+
+  if (!chatDbPath && bookmark && process.platform === 'darwin') {
+    const stopAccessing = app.startAccessingSecurityScopedResource(bookmark);
+    try {
+      chatDbPath = findChatDbInFolder(folderPath);
+    } finally {
+      if (typeof stopAccessing === 'function') {
+        stopAccessing();
+      }
+    }
+  }
+
+  if (!chatDbPath) {
+    const choice = await dialog.showMessageBox(getDialogParentWindow(), {
+      type: 'warning',
+      title: 'chat.db not found',
+      message: 'No chat.db file was found in the selected folder.',
+      detail: 'Choose the Messages folder that contains chat.db, or pick the chat.db file directly.',
+      buttons: ['Pick chat.db file', 'Cancel'],
+      defaultId: 0,
+      cancelId: 1
+    });
+
+    if (choice.response === 0) {
+      return pickChatDbFileDialog();
+    }
+
+    return null;
+  }
+
+  return finalizeChatDbSelection({
+    path: chatDbPath,
+    bookmark,
+    source: 'folder'
+  });
 }
 
 async function loadWelcomeApp() {
@@ -157,7 +295,7 @@ async function showLoginPopup(options = {}) {
     closable: true,
     parent: mainWindow,
     show: false,
-    title: 'MessageBackup Sign In',
+    title: 'Clarified Sign In',
     backgroundColor: '#0b0f19',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -240,12 +378,13 @@ function createWindow() {
     minHeight: 760,
     resizable: true,
     show: false,
-    title: 'MessageBackup',
+    title: 'Clarified',
     backgroundColor: '#05060a',
-    webPreferences: {
+      webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
+      webviewTag: true,
       partition: 'persist:messagebackup-auth'
     }
   });
@@ -259,7 +398,7 @@ function createWindow() {
     }
   });
 
-  void loadWelcomeApp();
+  void loadNativeApp();
 
   mainWindow.on('closed', () => {
     closeLoginPopup();
@@ -298,30 +437,47 @@ app.on('activate', () => {
   }
 });
 
-ipcMain.handle('select-chat-db', async () => {
-  const home = os.homedir();
-  const defaultPath = path.join(home, 'Library', 'Messages');
+ipcMain.handle('auto-resolve-chat-db', async () => {
+  return tryResolveChatDb(app.getPath('userData'));
+});
 
-  const result = await dialog.showOpenDialog(mainWindow, {
-    title: 'Select iPhone chat.db',
-    buttonLabel: 'Use chat.db',
-    defaultPath,
-    properties: ['openFile'],
-    filters: [
-      { name: 'SQLite Databases', extensions: ['db', 'sqlite', 'sqlite3'] },
-      { name: 'All Files', extensions: ['*'] }
-    ],
-    ...getSecurityScopedDialogOptions()
-  });
-
-  if (result.canceled || !result.filePaths.length) {
-    return null;
+ipcMain.handle('ensure-chat-db-access', async (event, options = {}) => {
+  const userDataPath = app.getPath('userData');
+  const existing = tryResolveChatDb(userDataPath);
+  if (existing) {
+    return { ok: true, selection: existing };
   }
 
-  return {
-    path: result.filePaths[0],
-    bookmark: result.bookmarks?.[0] ?? null
-  };
+  if (options.promptIfNeeded === false) {
+    return { ok: false, needsPermission: true };
+  }
+
+  let selection = await pickChatDbFileDialog();
+  if (!selection) {
+    selection = await pickChatDbFromFolderDialog();
+  }
+
+  if (!selection) {
+    return { ok: false, canceled: true };
+  }
+
+  return { ok: true, selection };
+});
+
+ipcMain.handle('select-chat-db', async (event, options = {}) => {
+  const mode = options.mode === 'file' ? 'file' : 'folder';
+  const userDataPath = app.getPath('userData');
+
+  const existing = tryResolveChatDb(userDataPath);
+  if (existing) {
+    return existing;
+  }
+
+  if (mode === 'file') {
+    return pickChatDbFileDialog();
+  }
+
+  return pickChatDbFromFolderDialog();
 });
 
 ipcMain.handle('select-output-xml', async (event, options = {}) => {
@@ -371,6 +527,16 @@ ipcMain.handle('get-login-popup-config', async (event, options = {}) => {
 ipcMain.handle('open-workspace', async () => {
   try {
     await loadNativeApp();
+    focusMainWindow();
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err.message || String(err) };
+  }
+});
+
+ipcMain.handle('open-welcome', async () => {
+  try {
+    await loadWelcomeApp();
     focusMainWindow();
     return { ok: true };
   } catch (err) {
@@ -508,12 +674,14 @@ ipcMain.handle('auth-record-export', async () => {
 
 ipcMain.handle('convert-thread', async (event, { chatDbPath, chatDbBookmark, handle, outputPath, outputBookmark }) => {
   try {
+    let messageCount = 0;
     await withSecurityScopedAccess(chatDbBookmark, async () => {
       await withSecurityScopedAccess(outputBookmark, async () => {
-        await convertThreadToXml(chatDbPath, handle, outputPath);
+        const result = await convertThreadToXml(chatDbPath, handle, outputPath);
+        messageCount = result?.messageCount || 0;
       });
     });
-    return { ok: true };
+    return { ok: true, messageCount };
   } catch (err) {
     return { ok: false, error: err.message || String(err) };
   }
@@ -528,10 +696,121 @@ ipcMain.handle('list-contacts', async (event, { chatDbPath, chatDbBookmark }) =>
   }
 });
 
-ipcMain.handle('get-thread', async (event, { chatDbPath, chatDbBookmark, handle }) => {
+ipcMain.handle('list-own-number-suggestions', async (event, { chatDbPath, chatDbBookmark }) => {
   try {
-    const messages = await withSecurityScopedAccess(chatDbBookmark, () => fetchThreadForHandle(chatDbPath, handle));
-    return { ok: true, messages };
+    const suggestions = await withSecurityScopedAccess(chatDbBookmark, () => listOwnNumberSuggestions(chatDbPath));
+    return { ok: true, suggestions };
+  } catch (err) {
+    return { ok: false, error: err.message || String(err) };
+  }
+});
+
+ipcMain.handle('get-thread', async (event, { chatDbPath, chatDbBookmark, handle, myNumber, previewLimit }) => {
+  try {
+    const resolvedPreviewLimit = Number(previewLimit) > 0 ? Number(previewLimit) : null;
+    const thread = await withSecurityScopedAccess(chatDbBookmark, () => fetchThreadForHandle(chatDbPath, handle, {
+      myNumber,
+      previewLimit: resolvedPreviewLimit
+    }));
+    return {
+      ok: true,
+      messages: thread.messages,
+      totalCount: thread.totalCount,
+      previewLimit: thread.previewLimit
+    };
+  } catch (err) {
+    return { ok: false, error: err.message || String(err) };
+  }
+});
+
+ipcMain.handle('open-full-disk-access-settings', async () => {
+  try {
+    spawn('open', ['x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles']);
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err.message || String(err) };
+  }
+});
+
+ipcMain.handle('auto-find-chat-db', async () => {
+  try {
+    const selection = await resolveChatDbAutomatically();
+    if (selection?.path) {
+      return { ok: true, path: selection.path, bookmark: selection.bookmark || null };
+    }
+    return { ok: false, permissionDenied: false };
+  } catch (err) {
+    if (err?.code === 'EACCES' || err?.code === 'EPERM') {
+      return { ok: false, permissionDenied: true };
+    }
+    return { ok: false, error: err.message || String(err) };
+  }
+});
+
+ipcMain.handle('read-file-text', async (event, filePath) => {
+  try {
+    const data = await fs.promises.readFile(filePath, 'utf8');
+    return { ok: true, data };
+  } catch (err) {
+    return { ok: false, error: err.message || String(err) };
+  }
+});
+
+ipcMain.handle('app-quit', async () => {
+  app.quit();
+});
+
+ipcMain.handle('window-minimize', async () => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.minimize();
+  }
+});
+
+ipcMain.handle('window-toggle-maximize', async () => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    if (mainWindow.isMaximized()) {
+      mainWindow.unmaximize();
+    } else {
+      mainWindow.maximize();
+    }
+  }
+});
+
+let clarifiedFirebaseAuth = { uid: null, idToken: null };
+
+ipcMain.on('set-firebase-auth', (_event, payload) => {
+  if (payload?.uid && payload?.idToken) {
+    clarifiedFirebaseAuth = { uid: payload.uid, idToken: payload.idToken };
+  }
+});
+
+ipcMain.handle('upload-xml-to-firebase', async (_event, { filePath, fileName }) => {
+  try {
+    if (!clarifiedFirebaseAuth.uid || !clarifiedFirebaseAuth.idToken) {
+      return { ok: false, error: 'No Firebase auth; sign in on the web app first.' };
+    }
+
+    const bucket = 'studio-3622430220-3c7ab.firebasestorage.app';
+    const xmlBuffer = await fs.promises.readFile(filePath);
+    const objectName = encodeURIComponent(
+      `users/${clarifiedFirebaseAuth.uid}/uploads/${fileName || path.basename(filePath)}`
+    );
+    const url = `https://firebasestorage.googleapis.com/v0/b/${bucket}/o?uploadType=media&name=${objectName}`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${clarifiedFirebaseAuth.idToken}`,
+        'Content-Type': 'application/xml'
+      },
+      body: xmlBuffer
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      return { ok: false, error: text || `Upload failed (${res.status})` };
+    }
+
+    return { ok: true };
   } catch (err) {
     return { ok: false, error: err.message || String(err) };
   }

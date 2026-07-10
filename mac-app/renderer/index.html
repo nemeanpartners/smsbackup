@@ -3,150 +3,251 @@
 
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>MessageBackup</title>
+  <title>Clarified</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 
-<body class="workspace-body">
-  <div class="app-root">
-    <div class="gradient-orbit gradient-orbit-1"></div>
-    <div class="gradient-orbit gradient-orbit-2"></div>
+<body>
+  <div class="app-shell">
+    <aside class="side-panel">
+      <div class="side-panel-header">
+        <span class="side-panel-title">Menu</span>
+      </div>
+      <!-- Setup & backup -->
+      <div class="side-section">
+        <button class="side-section-toggle side-section-toggle-active" data-section="setup">
+          <span class="side-section-label">Setup &amp; backup</span>
+          <span class="side-section-arrow">▾</span>
+        </button>
+        <div class="side-submenu side-submenu-open" data-section="setup">
+          <button class="side-subtab side-subtab-active" data-view="backup-main">
+            <span class="side-subtab-label">Start backup &amp; sync</span>
+          </button>
+        </div>
+      </div>
 
-    <div class="app-layout">
-      <aside class="sidebar">
-        <div class="sidebar-scroll">
-          <div class="sidebar-brand">
+      <!-- Analysis (hidden for now) -->
+      <div class="side-section sidebar-hidden">
+        <button class="side-section-toggle" data-section="analysis">
+          <span class="side-section-label">Analysis</span>
+          <span class="side-section-arrow">▾</span>
+        </button>
+        <div class="side-submenu" data-section="analysis">
+          <button class="side-subtab" data-view="analysis-options">
+            <span class="side-subtab-label">Analysis Options</span>
+          </button>
+          <button class="side-subtab" data-view="analysis-full">
+            <span class="side-subtab-label">Full Analysis</span>
+          </button>
+          <button class="side-subtab" data-view="analysis-reports">
+            <span class="side-subtab-label">Reports</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- My Journey (hidden for now) -->
+      <div class="side-section sidebar-hidden">
+        <button class="side-section-toggle" data-section="journey">
+          <span class="side-section-label">My Journey</span>
+          <span class="side-section-arrow">▾</span>
+        </button>
+        <div class="side-submenu" data-section="journey">
+          <button class="side-subtab" data-view="journey-guide">
+            <span class="side-subtab-label">My Guide</span>
+          </button>
+          <button class="side-subtab" data-view="journey-help">
+            <span class="side-subtab-label">Get help responding</span>
+          </button>
+          <button class="side-subtab" data-view="journey-healing">
+            <span class="side-subtab-label">Healing guides</span>
+          </button>
+          <button class="side-subtab" data-view="journey-roadmap">
+            <span class="side-subtab-label">Personal growth roadmap</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Login / Sign Up -->
+      <div class="side-section">
+        <button class="side-section-toggle" data-section="profile">
+          <span class="side-section-label">Login / Sign Up</span>
+          <span class="side-section-arrow"></span>
+        </button>
+      </div>
+    </aside>
+
+    <div class="view-container">
+      <div id="homeView" class="view"></div>
+
+      <div id="clarifiedView" class="view view-active">
+        <div class="app-root">
+          <div class="gradient-orbit gradient-orbit-1"></div>
+          <div class="gradient-orbit gradient-orbit-2"></div>
+
+          <header class="app-header">
             <div class="logo-circle">
               <span>↔︎</span>
             </div>
-            <div>
-              <h1>MessageBackup</h1>
-              <p>Local SMS export</p>
+            <div class="title-block">
+              <h1>Clarified</h1>
+              <p>Welcome. Back up your iPhone Messages and analyze your conversations securely, locally, and calmly.</p>
+              <div class="start-hint-bubble">
+                After uploading these, it's recommended to use the Clarified messages for additional and future conversation analysis.
+              </div>
             </div>
-          </div>
+            <div class="window-controls">
+              <button id="winMinimize" class="window-btn" title="Minimize">–</button>
+              <button id="winMaximize" class="window-btn" title="Maximize">⤢</button>
+            </div>
+          </header>
 
-          <div class="sidebar-section">
-            <div class="sidebar-label">SMS Backup</div>
-            <p class="sidebar-copy">Browse your iPhone Messages database and export conversation XML on this Mac.</p>
-            <button id="pickChatDb" class="btn primary sidebar-browse-btn">Browse DB folder…</button>
-            <div id="chatDbPath" class="sidebar-path">No database selected</div>
-          </div>
+          <main class="card start-card">
+            <section class="step start-hero">
+              <div class="start-columns">
+                <div class="start-summary">
+                  <div class="start-device-illustration">
+                    <div class="start-device-screen"></div>
+                  </div>
+                  <h2>Start backup &amp; sync</h2>
+                  <p class="hint">
+                    In one guided session, Clarified will safely prepare a conversation backup on your Mac and sync it to your Clarified profile for analysis.
+                  </p>
+                </div>
 
-          <nav class="sidebar-section">
-            <div class="sidebar-label">Workflow</div>
-            <a class="sidebar-nav-item" href="#databaseSection">1. Find database</a>
-            <a class="sidebar-nav-item" href="#contactsSection">2. Load contacts</a>
-            <a class="sidebar-nav-item" href="#previewSection">3. Preview chat</a>
-            <a class="sidebar-nav-item" href="#extractSection">4. Extract conversation</a>
-            <a class="sidebar-nav-item" href="#outputSection">5. Save XML</a>
-          </nav>
+                <div class="start-steps">
+                  <h3 class="start-steps-title">This session will:</h3>
+                  <ol class="start-steps-list">
+                    <li><span class="start-step-label">Open the Clarified web app so you can sign in.</span></li>
+                    <li><span class="start-step-label">Find your Messages database and let you choose a conversation.</span></li>
+                    <li><span class="start-step-label">Save that conversation and upload it to Clarified for insights and reports.</span></li>
+                  </ol>
+                  <p class="start-footnote">Nothing is uploaded until you confirm, and you can stop at any time.</p>
+                  <div class="start-actions">
+                    <button id="goToBackup" class="btn primary">Start backup &amp; sync</button>
+                    <button id="goToAnalysis" class="btn ghost">Open Clarified web app</button>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section class="step backup-setup-header">
+              <div class="backup-setup-top-row">
+                <div class="backup-setup-copy">
+                  <h2>Backup setup</h2>
+                  <p class="hint">Follow the steps below to find your Messages database, pick a conversation, and export it as an Android‑ready XML backup.</p>
+                </div>
+                <button id="runFullExport" class="btn primary">
+                  Start setup
+                </button>
+              </div>
+              <div class="backup-setup-steps">
+                <div class="side-panel-header side-panel-subheader">
+                  <span class="side-panel-title">Setup steps</span>
+                </div>
+                <div class="side-steps">
+                  <div class="side-step" data-step="1">
+                    <span class="side-step-index">1</span>
+                    <span class="side-step-label">Find Messages database</span>
+                    <span class="side-step-status"></span>
+                  </div>
+                  <div class="side-step" data-step="2">
+                    <span class="side-step-index">2</span>
+                    <span class="side-step-label">Pick contact &amp; number</span>
+                    <span class="side-step-status"></span>
+                  </div>
+                  <div class="side-step" data-step="3">
+                    <span class="side-step-index">3</span>
+                    <span class="side-step-label">Export XML &amp; upload</span>
+                    <span class="side-step-status"></span>
+                  </div>
+                  <div class="side-step" data-step="4">
+                    <span class="side-step-index">4</span>
+                    <span class="side-step-label">Save &amp; review analysis</span>
+                    <span class="side-step-status"></span>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section class="step step-section" data-step-section="1">
+              <h2>1. Choose your iPhone Messages database</h2>
+              <p class="hint">Typically a <code>chat.db</code> exported from an iPhone backup, or copied from <code>~/Library/Messages</code>.</p>
+              <div class="field-row">
+                <button id="pickChatDb" class="btn primary btn-hidden">Browse…</button>
+                <span id="chatDbPath" class="path-label">No file selected</span>
+              </div>
+              <div class="field-row step-footer-row">
+                <button id="step1Next" class="btn accent">Next: Pick a contact</button>
+              </div>
+            </section>
+
+            <section class="step step-section preview-step" data-step-section="2">
+              <h2>2. Pick a contact &amp; preview</h2>
+              <p class="hint">Clarified exports one full conversation at a time. The preview only shows a small snippet.</p>
+              <div class="preview-controls">
+                <label class="inline-label">
+                  <span>Your phone number</span>
+                  <input
+                    id="userNumberSelect"
+                    class="contact-select"
+                    list="userNumberOptions"
+                    placeholder="Type or choose your number…"
+                    autocomplete="off"
+                  />
+                  <datalist id="userNumberOptions"></datalist>
+                </label>
+                <label class="inline-label">
+                  <span>Choose a contact number</span>
+                  <select id="contactSelect" class="contact-select">
+                    <option value="">Select a contact…</option>
+                  </select>
+                </label>
+              </div>
+              <div id="pairSummary" class="pair-summary">
+                Once you’ve entered your number and picked a contact, Clarified will export the full conversation between your number and that contact into a single XML file.
+              </div>
+              <div class="thread-shell">
+                <div id="threadToggle" class="thread-toggle">
+                  <span id="threadToggleLabel">Conversation preview (snippet only)</span>
+                  <span id="threadToggleIcon">▾</span>
+                </div>
+                <div id="threadContainer" class="thread-container">
+                  <div class="thread-placeholder">After you pick a contact, a short preview will appear here. The exported XML will contain the full history between your number and that contact.</div>
+                </div>
+              </div>
+              <div class="preview-footer">
+                <button id="step2Next" class="btn accent">Next: Save Conversation</button>
+              </div>
+            </section>
+
+            <section class="step step-section step-section-active action-row" data-step-section="3">
+              <div id="status" class="status-label">Waiting to begin…</div>
+            </section>
+          </main>
+
+          <footer class="app-footer">
+            <span>All conversion happens locally on your Mac. Nothing leaves your machine.</span>
+          </footer>
         </div>
+      </div>
 
-        <div class="sidebar-footer">
-          <button id="openLoginButton" class="sidebar-login-btn" type="button" aria-label="Sign in to save export count">
-            <span class="sidebar-login-icon" aria-hidden="true">👤</span>
-            <span class="sidebar-login-copy">
-              <span id="accountModeBadge" class="account-badge">Guest</span>
-              <span id="accountEmail" class="sidebar-login-email">Sign in (optional)</span>
-              <span id="accountExports" class="sidebar-login-meta">Export count not synced</span>
-            </span>
-          </button>
-          <button id="logoutButton" class="sidebar-logout-btn hidden" type="button">Sign out</button>
-          <div id="authStatus" class="sidebar-status hidden"></div>
-        </div>
-      </aside>
+      <div id="webPreviewView" class="view">
+        <webview
+          id="loginWebview"
+          class="web-preview-frame"
+          src="about:blank"
+          preload="webview-preload.js"
+          allowpopups
+        ></webview>
+      </div>
 
-      <div class="main-panel">
-        <header class="main-header">
-          <div>
-            <h2>Local SMS Desktop App</h2>
-            <p>Extract and export iPhone Messages conversation history locally. Nothing leaves your Mac.</p>
-          </div>
-        </header>
-
-        <main class="workspace-content">
-          <section id="introSection" class="intro">
-            <h2>Before you start</h2>
-            <p class="hint">You choose the files — the app only reads what you select.</p>
-            <ol class="intro-list">
-              <li>Locate the <code>chat.db</code> file you want to convert.</li>
-              <li>If macOS protects the original Messages database, copy <code>chat.db</code> to another folder first.</li>
-              <li>Select that database and load contacts.</li>
-              <li>Select a contact and export XML locally.</li>
-            </ol>
-          </section>
-
-          <section id="databaseSection" class="step">
-            <h2>1. Find your Messages database</h2>
-            <p class="hint">Choose the exact <code>chat.db</code> file you want to convert, or use Browse DB folder in the left menu.</p>
-            <div class="field-row">
-              <button id="pickChatDbSecondary" class="btn primary">Browse…</button>
-              <span id="chatDbPathSecondary" class="path-label">No file selected</span>
-            </div>
-          </section>
-
-          <section id="contactsSection" class="step">
-            <h2>2. Load contacts</h2>
-            <p class="hint">Reads the selected <code>chat.db</code> snapshot and lists your contacts.</p>
-            <div class="field-row">
-              <button id="loadContactsButton" class="btn">Load contacts</button>
-              <span class="path-label">Ready after the database is selected.</span>
-            </div>
-          </section>
-
-          <section id="previewSection" class="step preview-step">
-            <h2>3. Choose a contact and preview</h2>
-            <p class="hint">Select a contact to view the conversation before exporting.</p>
-            <div class="preview-controls">
-              <select id="contactSelect" class="contact-select">
-                <option value="">Select a contact…</option>
-              </select>
-            </div>
-            <div class="thread-shell">
-              <div id="threadToggle" class="thread-toggle">
-                <span id="threadToggleLabel">Conversation table</span>
-                <span id="threadToggleIcon">▾</span>
-              </div>
-              <div id="threadContainer" class="thread-container">
-                <div class="thread-placeholder">Pick a contact to view your message history.</div>
-              </div>
-            </div>
-          </section>
-
-          <section id="extractSection" class="step">
-            <h2>4. Extract specific conversation history</h2>
-            <p class="hint">Choose your own number, confirm the selected contact number, then export only that one conversation.</p>
-            <div class="extract-grid">
-              <div class="extract-field">
-                <label for="myNumberInput">Your phone number</label>
-                <input id="myNumberInput" class="contact-input" type="text" placeholder="e.g. +61412345678" />
-              </div>
-              <div class="extract-field">
-                <label for="selectedContactNumber">Other person's number</label>
-                <input id="selectedContactNumber" class="contact-input" type="text" readonly value="No contact selected yet" />
-              </div>
-            </div>
-          </section>
-
-          <section id="outputSection" class="step">
-            <h2>5. Save XML for this contact</h2>
-            <p class="hint">Creates an XML file for just the selected conversation.</p>
-            <div class="field-row">
-              <button id="pickOutput" class="btn">Choose location…</button>
-              <span id="outputPath" class="path-label">Defaults to Desktop/sms_export.xml</span>
-            </div>
-          </section>
-
-          <section class="step action-row">
-            <button id="convertButton" class="btn accent">Extract Conversation XML</button>
-            <div id="status" class="status-label">Ready — browse a database to begin.</div>
-          </section>
-        </main>
-
-        <footer class="app-footer">
-          <span>All conversion happens locally on your Mac. Sign in from the left menu only if you want export counts synced to your account.</span>
-        </footer>
+  <div id="reportsView" class="view">
+        <webview
+          class="web-preview-frame"
+          src="https://studio-3622430220-3c7ab.web.app/reports?monospaceUid=71338"
+          preload="webview-preload.js"
+          allowpopups
+        ></webview>
       </div>
     </div>
   </div>

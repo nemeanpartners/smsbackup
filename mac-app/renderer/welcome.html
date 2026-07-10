@@ -4,69 +4,59 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>MessageBackup</title>
+  <title>Clarified</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 
-<body class="welcome-body">
-  <div class="welcome-root">
-    <div class="gradient-orbit gradient-orbit-1"></div>
-    <div class="gradient-orbit gradient-orbit-2"></div>
+<body class="clarified-body">
+  <div class="clarified-app">
+    <aside class="clarified-sidebar">
+      <div class="clarified-sidebar-label">Menu</div>
+      <nav class="clarified-nav">
+        <button class="clarified-nav-item active" type="button">Start</button>
+        <button id="navBackupButton" class="clarified-nav-item" type="button">Backup</button>
+        <button class="clarified-nav-item clarified-nav-item-disabled" type="button" disabled>Communication analysis</button>
+        <button class="clarified-nav-item clarified-nav-item-disabled" type="button" disabled>Reports</button>
+      </nav>
+    </aside>
 
-    <div class="welcome-layout">
-      <section class="welcome-hero">
-        <div class="welcome-badge">Local macOS Desktop App</div>
-        <div class="welcome-brand">
-          <div class="logo-circle logo-circle-lg">
-            <span>↔︎</span>
-          </div>
+    <main class="clarified-main">
+      <header class="clarified-header">
+        <div class="clarified-header-brand">
+          <div class="logo-circle logo-circle-lg"><span>↔︎</span></div>
           <div>
-            <h1>MessageBackup</h1>
-            <p>Export iPhone Messages to XML on your Mac</p>
+            <h1>Clarified</h1>
+            <p>Welcome. Back up your iPhone Messages and analyze your conversations securely, locally, and calmly.</p>
+          </div>
+        </div>
+      </header>
+
+      <section class="clarified-start-card">
+        <div class="clarified-start-visual">
+          <div class="clarified-visual-frame">
+            <div class="clarified-visual-pill"></div>
+          </div>
+          <div class="clarified-start-copy">
+            <h2>Get your iPhone Messages ready for Clarified</h2>
+            <p>In one guided session, Clarified will safely prepare a conversation backup on your Mac and sync it to your Clarified profile for analysis.</p>
           </div>
         </div>
 
-        <p class="welcome-lead">
-          MessageBackup helps you browse your iPhone Messages database, preview conversations,
-          and export a single thread as XML — entirely on your Mac. Nothing is uploaded unless
-          you choose to sign in and sync your export count.
-        </p>
-
-        <ul class="welcome-features">
-          <li>Browse your local <code>chat.db</code> file safely</li>
-          <li>Preview conversations before exporting</li>
-          <li>Extract one contact thread to XML</li>
-          <li>Optional account sign-in to track exports</li>
-        </ul>
-
-        <div class="welcome-actions">
-          <button id="continueButton" class="btn accent welcome-continue-btn" type="button">
-            Continue to Local SMS App
-          </button>
-          <p class="welcome-note">You can sign in later from the bottom of the left menu.</p>
+        <div class="clarified-start-panel">
+          <h3>This session will:</h3>
+          <ol>
+            <li>Open the Clarified web app so you can sign in.</li>
+            <li>Find your Messages database and let you choose a conversation.</li>
+            <li>Save that conversation and upload it to Clarified for insights and reports.</li>
+          </ol>
+          <p class="clarified-start-note">Nothing is uploaded until you confirm, and you can stop at any time.</p>
+          <div class="clarified-start-actions">
+            <button id="continueButton" class="btn clarified-btn-start" type="button">Start</button>
+            <button id="openWebAppButton" class="btn clarified-btn-secondary" type="button">Open Clarified web app</button>
+          </div>
         </div>
       </section>
-
-      <aside class="welcome-panel">
-        <div class="welcome-panel-card">
-          <h2>How it works</h2>
-          <ol class="welcome-steps">
-            <li>Select your Messages <code>chat.db</code> file</li>
-            <li>Load contacts from the database snapshot</li>
-            <li>Preview a conversation with a contact</li>
-            <li>Export that thread as XML to your chosen folder</li>
-          </ol>
-        </div>
-
-        <div class="welcome-panel-card welcome-panel-card-muted">
-          <h3>Privacy first</h3>
-          <p>
-            The local desktop app only reads files you choose. Conversion happens on your Mac.
-            Sign-in is optional and opens the hosted dashboard only if you want account sync.
-          </p>
-        </div>
-      </aside>
-    </div>
+    </main>
   </div>
 
   <script src="welcome.js"></script>

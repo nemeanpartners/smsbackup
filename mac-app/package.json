@@ -8,7 +8,7 @@
   "scripts": {
     "sync:web": "node scripts/sync-web-portal.js",
     "start": "node scripts/sync-web-portal.js && electron .",
-    "dist": "node scripts/sync-web-portal.js && electron-builder --mac dmg",
+    "dist": "node scripts/sync-web-portal.js && node scripts/test-message-body.js && node --check renderer/renderer.js && electron-builder --mac dmg",
     "dist:mas-dev": "node scripts/sync-web-portal.js && electron-builder --mac mas-dev",
     "dist:mas": "node scripts/sync-web-portal.js && electron-builder --mac mas"
   },
@@ -23,8 +23,8 @@
   },
   "build": {
     "appId": "backupmessages.nemeanpartners.mac",
-    "buildVersion": "9",
-    "productName": "MessageBackup",
+    "buildVersion": "19",
+    "productName": "Clarified",
     "asar": true,
     "afterPack": "scripts/after-pack.js",
     "mac": {
@@ -57,6 +57,10 @@
     },
     "files": [
       "auth.js",
+      "chat-db-access.js",
+      "phone-utils.js",
+      "message-body.js",
+      "vendor/**/*",
       "main.js",
       "preload.js",
       "renderer/**/*",
@@ -66,6 +70,7 @@
       "package.json"
     ],
     "dmg": {
+      "artifactName": "Clarified-${version}-${arch}.${ext}",
       "backgroundColor": "#0b0c10",
       "iconSize": 128,
       "contents": [

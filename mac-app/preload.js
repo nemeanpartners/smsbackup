@@ -8,22 +8,71 @@ contextBridge.exposeInMainWorld('electronAPI', {
   closeLoginPopup: () => ipcRenderer.invoke('auth-close-login-popup'),
   getLoginPopupConfig: (options = {}) => ipcRenderer.invoke('get-login-popup-config', options),
   openWorkspace: () => ipcRenderer.invoke('open-workspace'),
+  openWelcome: () => ipcRenderer.invoke('open-welcome'),
   openLocalWorkspace: () => ipcRenderer.invoke('auth-open-local-workspace'),
   onAuthStateChanged: (callback) => {
     const listener = (_event, state) => callback(state);
     ipcRenderer.on('auth-state-updated', listener);
     return () => ipcRenderer.removeListener('auth-state-updated', listener);
   },
-  selectChatDb: () => ipcRenderer.invoke('select-chat-db'),
-  selectOutputXml: (defaultFilename) => ipcRenderer.invoke('select-output-xml', { defaultFilename }),
-  convertSms: (chatDbPath, chatDbBookmark, outputPath, outputBookmark) =>
-    ipcRenderer.invoke('convert-sms', { chatDbPath, chatDbBookmark, outputPath, outputBookmark }),
-  convertThread: (chatDbPath, handle, outputPath, chatDbBookmark, outputBookmark) =>
-    ipcRenderer.invoke('convert-thread', { chatDbPath, chatDbBookmark, handle, outputPath, outputBookmark }),
-  listContacts: (chatDbPath, chatDbBookmark) =>
+  selectChatDb: async (options = {}) => {
+    const selected = await ipcRenderer.invoke('select-chat-db', options);
+    if (!selected) return null;
+    return selected;
+  },
+  selectOutputXml: async (defaultFilename) => {
+    const selected = await ipcRenderer.invoke('select-output-xml', { defaultFilename: defaultFilename || 'sms_export.xml' });
+    if (!selected) return null;
+    return selected.path || selected;
+  },
+  listContacts: async (chatDbPath, chatDbBookmark) =>
     ipcRenderer.invoke('list-contacts', { chatDbPath, chatDbBookmark }),
-  getThread: (chatDbPath, handle, chatDbBookmark) =>
-    ipcRenderer.invoke('get-thread', { chatDbPath, chatDbBookmark, handle })
+  listOwnNumberSuggestions: (chatDbPath, chatDbBookmark) =>
+    ipcRenderer.invoke('list-own-number-suggestions', { chatDbPath, chatDbBookmark }),
+  getThread: (chatDbPath, handle, chatDbBookmark, options = {}) =>
+    ipcRenderer.invoke('get-thread', {
+      chatDbPath,
+      chatDbBookmark,
+      handle,
+      myNumber: options.myNumber,
+      previewLimit: options.previewLimit
+    }),
+
+  // Clarified desktop UI compatibility
+  autoFindChatDb: async () => {
+    const access = await ipcRenderer.invoke('ensure-chat-db-access', { promptIfNeeded: true });
+    if (access?.ok && access.selection?.path) {
+      return {
+        ok: true,
+        path: access.selection.path,
+        bookmark: access.selection.bookmark || null
+      };
+    }
+    if (access?.canceled) {
+      return { ok: false, permissionDenied: true };
+    }
+    const resolved = await ipcRenderer.invoke('auto-resolve-chat-db');
+    if (resolved?.path) {
+      return { ok: true, path: resolved.path, bookmark: resolved.bookmark || null };
+    }
+    return { ok: false, permissionDenied: false };
+  },
+  openFullDiskAccessSettings: () => ipcRenderer.invoke('open-full-disk-access-settings'),
+  convertConversation: (chatDbPath, handle, userNumber, contactNumber, outputPath, chatDbBookmark, outputBookmark) =>
+    ipcRenderer.invoke('convert-thread', {
+      chatDbPath,
+      chatDbBookmark,
+      handle,
+      outputPath,
+      outputBookmark
+    }),
+  readFileText: (filePath) => ipcRenderer.invoke('read-file-text', filePath),
+  quitApp: () => ipcRenderer.invoke('app-quit'),
+  setFirebaseAuth: (payload) => ipcRenderer.send('set-firebase-auth', payload),
+  uploadXmlToFirebase: (filePath, fileName) =>
+    ipcRenderer.invoke('upload-xml-to-firebase', { filePath, fileName }),
+  minimizeWindow: () => ipcRenderer.invoke('window-minimize'),
+  toggleMaximizeWindow: () => ipcRenderer.invoke('window-toggle-maximize')
 });
 
 const HOSTED_LOGIN_URL = 'https://message-backup-web-dashboard-206706021143.asia-southeast1.run.app';

@@ -1,9 +1,9 @@
 const fs = require('fs');
 const path = require('path');
 const initSqlJs = require('sql.js');
-const { create } = require('xmlbuilder2');
+const { getHandleVariants, mapMessageRow } = require('./phone-utils');
 
-const IOS_EPOCH_DIFF = 978307200; // seconds between 1970-01-01 and 2001-01-01
+const IOS_EPOCH_DIFF = 978307200;
 
 let sqlPromise = null;
 
@@ -41,8 +41,109 @@ function iosTimestampToUnixMs(value) {
 async function openDb(chatDbPath) {
   const SQL = await getSql();
   const fileBuffer = fs.readFileSync(chatDbPath);
-  const u8 = new Uint8Array(fileBuffer);
-  return new SQL.Database(u8);
+  return new SQL.Database(new Uint8Array(fileBuffer));
+}
+
+function buildThreadQuery(handleVariants) {
+  const placeholders = handleVariants.map(() => '?').join(', ');
+
+  return `
+        SELECT DISTINCT
+            m.ROWID AS id,
+            m.text AS text,
+            m.subject AS subject,
+            hex(m.attributedBody) AS attributedBodyHex,
+            hex(m.message_summary_info) AS messageSummaryInfoHex,
+            m.date AS date,
+            m.date_read AS date_read,
+            m.is_from_me AS is_from_me,
+            m.cache_has_attachments AS cache_has_attachments,
+            h.id AS handle,
+            m.cache_has_attachments AS has_attachment
+        FROM message m
+        JOIN handle h ON m.handle_id = h.ROWID
+        WHERE h.id IN (${placeholders})
+
+        UNION
+
+        SELECT DISTINCT
+            m.ROWID AS id,
+            m.text AS text,
+            m.subject AS subject,
+            hex(m.attributedBody) AS attributedBodyHex,
+            hex(m.message_summary_info) AS messageSummaryInfoHex,
+            m.date AS date,
+            m.date_read AS date_read,
+            m.is_from_me AS is_from_me,
+            m.cache_has_attachments AS cache_has_attachments,
+            h.id AS handle,
+            m.cache_has_attachments AS has_attachment
+        FROM message m
+        JOIN chat_message_join cmj ON cmj.message_id = m.ROWID
+        JOIN chat_handle_join chj ON chj.chat_id = cmj.chat_id
+        JOIN handle h ON h.ROWID = chj.handle_id
+        WHERE h.id IN (${placeholders})
+
+        ORDER BY date ASC
+    `;
+}
+
+function finalizeMessageRow(row) {
+  const mapped = mapMessageRow({
+    ...row,
+    dateMs: iosTimestampToUnixMs(row.date)
+  });
+
+  if (!mapped.body) {
+    mapped.body = mapped.hasAttachment ? '[Attachment]' : '[Message]';
+  }
+
+  return mapped;
+}
+
+function dedupeMessagesById(messages) {
+  const seen = new Map();
+
+  for (const message of messages) {
+    const key = message.id ?? `${message.dateMs}-${message.body}-${message.isFromMe ? 1 : 0}`;
+    if (!seen.has(key)) {
+      seen.set(key, message);
+    }
+  }
+
+  return Array.from(seen.values()).sort((a, b) => (a.dateMs || 0) - (b.dateMs || 0));
+}
+
+function escapeXmlAttribute(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+function buildSmsBackupXmlCompact(messages, defaultAddress) {
+  const exportMessages = messages.filter((message) => message.body && message.body !== '[Message]');
+  const lines = [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    `<smses count="${exportMessages.length}">`
+  ];
+
+  for (const msg of exportMessages) {
+    const dateMs = msg.dateMs ?? iosTimestampToUnixMs(msg.date) ?? Date.now();
+    const isFromMe = msg.isFromMe ?? msg.is_from_me ?? 0;
+    const address = escapeXmlAttribute(defaultAddress || msg.handle || 'unknown');
+    const body = escapeXmlAttribute(msg.body);
+    const read = msg.date_read ? '1' : '0';
+
+    lines.push(
+      `  <sms protocol="0" address="${address}" date="${dateMs}" type="${isFromMe ? '2' : '1'}" subject="null" body="${body}" toa="null" sc_toa="null" read="${read}" status="-1" locked="0" date_sent="${dateMs}"/>`
+    );
+  }
+
+  lines.push('</smses>');
+  return `${lines.join('\n')}\n`;
 }
 
 async function fetchMessages(chatDbPath) {
@@ -51,22 +152,29 @@ async function fetchMessages(chatDbPath) {
   const query = `
         SELECT
             m.ROWID AS id,
-            m.text AS body,
+            m.text AS text,
+            m.subject AS subject,
+            hex(m.attributedBody) AS attributedBodyHex,
+            hex(m.message_summary_info) AS messageSummaryInfoHex,
             m.date AS date,
             m.date_read AS date_read,
             m.is_from_me AS is_from_me,
             m.service AS service,
-            h.id AS handle
+            m.cache_has_attachments AS cache_has_attachments,
+            h.id AS handle,
+            m.cache_has_attachments AS has_attachment
         FROM message m
         LEFT JOIN handle h ON m.handle_id = h.ROWID
-        WHERE m.text IS NOT NULL
         ORDER BY m.date ASC
     `;
 
   const stmt = db.prepare(query);
   const rows = [];
   while (stmt.step()) {
-    rows.push(stmt.getAsObject());
+    const mapped = finalizeMessageRow(stmt.getAsObject());
+    if (mapped.body && mapped.body !== '[Message]') {
+      rows.push(mapped);
+    }
   }
   stmt.free();
   db.close();
@@ -78,13 +186,31 @@ async function listContacts(chatDbPath) {
 
   const query = `
         SELECT
-            h.id AS handle,
-            COUNT(m.ROWID) AS message_count,
-            MAX(m.date) AS last_date
-        FROM message m
-        LEFT JOIN handle h ON m.handle_id = h.ROWID
-        WHERE h.id IS NOT NULL
-        GROUP BY h.id
+            handle,
+            COUNT(DISTINCT message_id) AS message_count,
+            MAX(date) AS last_date
+        FROM (
+            SELECT
+                h.id AS handle,
+                m.ROWID AS message_id,
+                m.date AS date
+            FROM message m
+            JOIN handle h ON m.handle_id = h.ROWID
+            WHERE h.id IS NOT NULL
+
+            UNION
+
+            SELECT
+                h.id AS handle,
+                m.ROWID AS message_id,
+                m.date AS date
+            FROM message m
+            JOIN chat_message_join cmj ON cmj.message_id = m.ROWID
+            JOIN chat_handle_join chj ON chj.chat_id = cmj.chat_id
+            JOIN handle h ON h.ROWID = chj.handle_id
+            WHERE h.id IS NOT NULL
+        )
+        GROUP BY handle
         ORDER BY last_date DESC
     `;
 
@@ -96,126 +222,99 @@ async function listContacts(chatDbPath) {
   stmt.free();
   db.close();
 
-  return rows.map(row => ({
+  return rows.map((row) => ({
     handle: row.handle,
     messageCount: row.message_count,
     lastDateMs: iosTimestampToUnixMs(row.last_date)
   }));
 }
 
-async function fetchThreadForHandle(chatDbPath, handle) {
+async function listOwnNumberSuggestions(chatDbPath) {
   const db = await openDb(chatDbPath);
+  const suggestions = new Map();
 
-  const query = `
+  try {
+    const accountStmt = db.prepare(`
+      SELECT login, account, service
+      FROM account
+      WHERE login IS NOT NULL OR account IS NOT NULL
+    `);
+
+    while (accountStmt.step()) {
+      const row = accountStmt.getAsObject();
+      for (const key of ['login', 'account']) {
+        const value = row[key];
+        if (value) {
+          suggestions.set(String(value), Number.MAX_SAFE_INTEGER);
+        }
+      }
+    }
+    accountStmt.free();
+  } catch {
+    // Older chat.db snapshots may not include account metadata.
+  }
+
+  const handleStmt = db.prepare(`
         SELECT
-            DISTINCT m.ROWID AS id,
-            m.text AS body,
-            m.date AS date,
-            m.date_read AS date_read,
-            m.is_from_me AS is_from_me
+            h.id AS handle,
+            COUNT(m.ROWID) AS message_count
         FROM message m
-        JOIN chat_message_join cmj ON cmj.message_id = m.ROWID
-        JOIN chat_handle_join chj ON chj.chat_id = cmj.chat_id
-        JOIN handle h ON h.ROWID = chj.handle_id
-        WHERE h.id = ? AND m.text IS NOT NULL
-        ORDER BY m.date ASC
-    `;
+        JOIN handle h ON m.handle_id = h.ROWID
+        WHERE h.id IS NOT NULL
+        GROUP BY h.id
+        ORDER BY message_count DESC
+    `);
 
+  while (handleStmt.step()) {
+    const row = handleStmt.getAsObject();
+    const handle = String(row.handle);
+    const count = Number(row.message_count || 0);
+    if (!suggestions.has(handle) || suggestions.get(handle) < count) {
+      suggestions.set(handle, count);
+    }
+  }
+
+  handleStmt.free();
+  db.close();
+
+  return Array.from(suggestions.entries())
+    .sort((a, b) => b[1] - a[1])
+    .map(([handle]) => handle);
+}
+
+async function fetchThreadForHandle(chatDbPath, handle, options = {}) {
+  const handleVariants = getHandleVariants(handle);
+  if (!handleVariants.length) {
+    return {
+      messages: [],
+      totalCount: 0,
+      previewLimit: options.previewLimit ?? null
+    };
+  }
+
+  const db = await openDb(chatDbPath);
+  const query = buildThreadQuery(handleVariants);
   const stmt = db.prepare(query);
-  stmt.bind([handle]);
+  stmt.bind([...handleVariants, ...handleVariants]);
 
-  const messages = [];
+  const rawMessages = [];
   while (stmt.step()) {
-    const row = stmt.getAsObject();
-    messages.push({
-      id: row.id,
-      body: row.body,
-      isFromMe: !!row.is_from_me,
-      dateMs: iosTimestampToUnixMs(row.date)
-    });
+    rawMessages.push(finalizeMessageRow(stmt.getAsObject()));
   }
 
   stmt.free();
   db.close();
 
-  return messages;
-}
+  const allMessages = dedupeMessagesById(rawMessages);
+  const totalCount = allMessages.length;
+  const previewLimit = Number(options.previewLimit) > 0 ? Number(options.previewLimit) : null;
+  const messages = previewLimit ? allMessages.slice(0, previewLimit) : allMessages;
 
-function buildSmsBackupXml(messages) {
-  const root = create({ version: '1.0', encoding: 'UTF-8' })
-    .ele('smses');
-
-  let count = 0;
-
-  for (const msg of messages) {
-    let address = msg.handle || '';
-    const body = msg.body || '';
-    const isFromMe = msg.is_from_me || 0;
-    const dateMs = iosTimestampToUnixMs(msg.date);
-
-    if (!body) continue;
-
-    if (!address) address = 'unknown';
-
-    const finalDateMs = dateMs ?? Date.now();
-
-    root.ele('sms', {
-      protocol: '0',
-      address,
-      date: String(finalDateMs),
-      type: isFromMe ? '2' : '1',
-      subject: 'null',
-      body,
-      toa: 'null',
-      sc_toa: 'null',
-      read: msg.date_read ? '1' : '0',
-      status: '-1',
-      locked: '0',
-      date_sent: String(finalDateMs)
-    });
-
-    count += 1;
-  }
-
-  root.att('count', String(count));
-
-  return root.end({ prettyPrint: true });
-}
-
-function buildSmsBackupXmlForHandle(messages, handle) {
-  const root = create({ version: '1.0', encoding: 'UTF-8' })
-    .ele('smses');
-
-  let count = 0;
-
-  for (const msg of messages) {
-    const body = msg.body || '';
-    if (!body) continue;
-
-    const dateMs = iosTimestampToUnixMs(msg.date);
-    const finalDateMs = dateMs ?? Date.now();
-
-    root.ele('sms', {
-      protocol: '0',
-      address: handle || 'unknown',
-      date: String(finalDateMs),
-      type: msg.is_from_me ? '2' : '1',
-      subject: 'null',
-      body,
-      toa: 'null',
-      sc_toa: 'null',
-      read: msg.date_read ? '1' : '0',
-      status: '-1',
-      locked: '0',
-      date_sent: String(finalDateMs)
-    });
-
-    count += 1;
-  }
-
-  root.att('count', String(count));
-
-  return root.end({ prettyPrint: true });
+  return {
+    messages,
+    totalCount,
+    previewLimit
+  };
 }
 
 async function convertIphoneSmsToXml(chatDbPath, outputPath) {
@@ -224,10 +323,9 @@ async function convertIphoneSmsToXml(chatDbPath, outputPath) {
   }
 
   const messages = await fetchMessages(chatDbPath);
-  const xml = buildSmsBackupXml(messages);
+  const xml = buildSmsBackupXmlCompact(messages);
 
-  const dir = path.dirname(outputPath);
-  fs.mkdirSync(dir, { recursive: true });
+  fs.mkdirSync(path.dirname(outputPath), { recursive: true });
   fs.writeFileSync(outputPath, xml, 'utf8');
 }
 
@@ -239,43 +337,27 @@ async function convertThreadToXml(chatDbPath, handle, outputPath) {
     throw new Error('No contact selected.');
   }
 
-  const db = await openDb(chatDbPath);
-  const query = `
-        SELECT
-            DISTINCT m.ROWID AS id,
-            m.text AS body,
-            m.date AS date,
-            m.date_read AS date_read,
-            m.is_from_me AS is_from_me
-        FROM message m
-        JOIN chat_message_join cmj ON cmj.message_id = m.ROWID
-        JOIN chat_handle_join chj ON chj.chat_id = cmj.chat_id
-        JOIN handle h ON h.ROWID = chj.handle_id
-        WHERE h.id = ? AND m.text IS NOT NULL
-        ORDER BY m.date ASC
-    `;
-
-  const stmt = db.prepare(query);
-  stmt.bind([handle]);
-
-  const messages = [];
-  while (stmt.step()) {
-    messages.push(stmt.getAsObject());
+  const { messages } = await fetchThreadForHandle(chatDbPath, handle);
+  const exportMessages = messages.filter((message) => message.body && message.body !== '[Message]');
+  if (!exportMessages.length) {
+    throw new Error('No readable messages were found for this contact.');
   }
 
-  stmt.free();
-  db.close();
+  const xml = buildSmsBackupXmlCompact(exportMessages, handle);
 
-  const xml = buildSmsBackupXmlForHandle(messages, handle);
-
-  const dir = path.dirname(outputPath);
-  fs.mkdirSync(dir, { recursive: true });
+  fs.mkdirSync(path.dirname(outputPath), { recursive: true });
   fs.writeFileSync(outputPath, xml, 'utf8');
+
+  return {
+    messageCount: exportMessages.length
+  };
 }
 
 module.exports = {
   convertIphoneSmsToXml,
   convertThreadToXml,
   listContacts,
-  fetchThreadForHandle
+  listOwnNumberSuggestions,
+  fetchThreadForHandle,
+  buildSmsBackupXmlCompact
 };

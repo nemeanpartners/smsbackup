@@ -1,284 +1,659 @@
+let webPreview = null;
+
+const HOSTED_LOGIN_URL = 'https://message-backup-web-dashboard-206706021143.asia-southeast1.run.app';
+
+const views = document.querySelectorAll('.view');
+const sectionToggles = document.querySelectorAll('.side-section-toggle');
+const submenus = document.querySelectorAll('.side-submenu');
+const subTabs = document.querySelectorAll('.side-subtab');
+
+function setActiveView(target) {
+  views.forEach((view) => {
+    const id = view.id;
+    let isTarget = false;
+    if (target === 'backup' && id === 'clarifiedView') {
+      isTarget = true;
+    } else if (target === 'analysis' && id === 'webPreviewView') {
+      isTarget = true;
+    } else if (target === 'login' && id === 'webPreviewView') {
+      isTarget = true;
+    } else if (target === 'reports' && id === 'reportsView') {
+      isTarget = true;
+    }
+    view.classList.toggle('view-active', isTarget);
+  });
+}
+
+function setActiveSubtab(tab) {
+  subTabs.forEach((t) => t.classList.remove('side-subtab-active'));
+  if (tab) {
+    tab.classList.add('side-subtab-active');
+  }
+}
+
+function toggleSection(sectionKey) {
+  sectionToggles.forEach((toggle) => {
+    const key = toggle.dataset.section;
+    const submenu = document.querySelector('.side-submenu[data-section="' + key + '"]');
+    const arrow = toggle.querySelector('.side-section-arrow');
+
+    if (!submenu) {
+      const isActive = key === sectionKey;
+      toggle.classList.toggle('side-section-toggle-active', isActive);
+      if (arrow) {
+        arrow.textContent = '';
+      }
+      return;
+    }
+
+    if (key === sectionKey) {
+      const isOpen = submenu.classList.contains('side-submenu-open');
+      if (isOpen) {
+        submenu.classList.remove('side-submenu-open');
+        toggle.classList.remove('side-section-toggle-active');
+        if (arrow) {
+          arrow.textContent = '▸';
+        }
+      } else {
+        submenu.classList.add('side-submenu-open');
+        toggle.classList.add('side-section-toggle-active');
+        if (arrow) {
+          arrow.textContent = '▾';
+        }
+      }
+    } else {
+      submenu.classList.remove('side-submenu-open');
+      toggle.classList.remove('side-section-toggle-active');
+      if (arrow) {
+        arrow.textContent = '▸';
+      }
+    }
+  });
+}
+
+function navigateBottomTab(label) {
+  if (!webPreview) return;
+  const js = `
+    (function() {
+      try {
+        var candidates = Array.prototype.slice.call(
+          document.querySelectorAll('button, a, [role="tab"], [role="button"])
+        );
+        for (var i = 0; i < candidates.length; i++) {
+          var el = candidates[i];
+          var text = (el.innerText || el.textContent || '').trim();
+          if (text === ${JSON.stringify(label)}) {
+            el.click();
+            return;
+          }
+        }
+      } catch (e) {
+        console.error('Clarified desktop nav error', e);
+      }
+    })();
+  `;
+  try {
+    webPreview.executeJavaScript(js).catch(() => {});
+  } catch (_) {
+    // no-op
+  }
+}
+
+function navigateWebSubpage(bottomLabel, targetLabel) {
+  if (!webPreview) return;
+  const js = `
+    (function() {
+      try {
+        var bottom = ${JSON.stringify(bottomLabel)};
+        var target = ${JSON.stringify(targetLabel)};
+
+        function clickByText(label) {
+          if (!label) return false;
+          var candidates = Array.prototype.slice.call(
+            document.querySelectorAll('button, a, [role="tab"], [role="button"], [role="menuitem"], [data-testid]')
+          );
+          for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            var text = (el.innerText || el.textContent || '').trim();
+            if (text === label) {
+              el.click();
+              return true;
+            }
+          }
+          return false;
+        }
+
+        if (bottom) {
+          clickByText(bottom);
+        }
+
+        if (target) {
+          setTimeout(function() {
+            clickByText(target);
+          }, 120);
+        }
+      } catch (e) {
+        console.error('Clarified desktop subpage nav error', e);
+      }
+    })();
+  `;
+  try {
+    webPreview.executeJavaScript(js).catch(() => {});
+  } catch (_) {
+    // no-op
+  }
+}
+
+function openLoginSection() {
+  toggleSection('profile');
+  setActiveView('login');
+
+  const frame = document.getElementById('loginWebview') || document.querySelector('#webPreviewView webview');
+  if (!frame || !window.electronAPI) {
+    return;
+  }
+
+  webPreview = frame;
+
+  void window.electronAPI.getLoginPopupConfig?.().then((config) => {
+    if (config?.preloadPath) {
+      frame.setAttribute('preload', config.preloadPath);
+    }
+    frame.src = config?.url || buildHostedLoginUrl();
+  }).catch(() => {
+    frame.src = buildHostedLoginUrl();
+  });
+}
+
+function buildHostedLoginUrl() {
+  const url = new URL(HOSTED_LOGIN_URL);
+  url.searchParams.set('desktop', '1');
+  url.searchParams.set('loginPopup', '1');
+  return url.toString();
+}
+
+function openProfileSection() {
+  openLoginSection();
+}
+
+function openSetupSection() {
+  setActiveView('backup');
+}
+
+function openAnalysisSection() {
+  openLoginSection();
+}
+
+function openJourneySection() {
+  openLoginSection();
+}
+
+sectionToggles.forEach((toggle) => {
+  toggle.addEventListener('click', () => {
+    const section = toggle.dataset.section;
+    if (section === 'setup') {
+      toggleSection('setup');
+      openSetupSection();
+    } else if (section === 'analysis') {
+      toggleSection('analysis');
+      openAnalysisSection();
+    } else if (section === 'journey') {
+      toggleSection('journey');
+      openJourneySection();
+    } else if (section === 'profile') {
+      openProfileSection();
+    }
+  });
+});
+
+subTabs.forEach((tab) => {
+  tab.addEventListener('click', () => {
+    const submenu = tab.closest('.side-submenu');
+    const section = submenu ? submenu.dataset.section : null;
+    const viewKey = tab.getAttribute('data-view');
+    setActiveSubtab(tab);
+
+    if (section === 'setup') {
+      openSetupSection();
+    } else if (section === 'analysis') {
+      if (viewKey === 'analysis-reports') {
+        // Reports uses the dedicated /reports webview.
+        toggleSection('analysis');
+        setActiveView('reports');
+      } else {
+        setActiveView('analysis');
+        if (viewKey === 'analysis-options') {
+          navigateWebSubpage('Analysis', 'Analysis Options');
+        } else if (viewKey === 'analysis-full') {
+          navigateWebSubpage('Analysis', 'Full Analysis');
+        }
+      }
+    } else if (section === 'journey') {
+      setActiveView('analysis');
+      if (viewKey === 'journey-guide') {
+        navigateWebSubpage('My Journey', 'My Guide');
+      } else if (viewKey === 'journey-help') {
+        navigateWebSubpage('My Journey', 'Get help responding');
+      } else if (viewKey === 'journey-healing') {
+        navigateWebSubpage('My Journey', 'Healing guides');
+      } else if (viewKey === 'journey-roadmap') {
+        navigateWebSubpage('My Journey', 'Personal growth roadmap');
+      }
+    }
+  });
+});
+
+// Initial view
+setActiveView('backup');
+
 const chatDbLabel = document.getElementById('chatDbPath');
-const chatDbLabelSecondary = document.getElementById('chatDbPathSecondary');
-const outputPathLabel = document.getElementById('outputPath');
 const pickChatDbButton = document.getElementById('pickChatDb');
-const pickChatDbSecondaryButton = document.getElementById('pickChatDbSecondary');
-const pickOutputButton = document.getElementById('pickOutput');
-const convertButton = document.getElementById('convertButton');
+const step1NextButton = document.getElementById('step1Next');
 const statusLabel = document.getElementById('status');
-const loadContactsButton = document.getElementById('loadContactsButton');
+const userNumberSelect = document.getElementById('userNumberSelect');
 const contactSelect = document.getElementById('contactSelect');
-const myNumberInput = document.getElementById('myNumberInput');
-const selectedContactNumber = document.getElementById('selectedContactNumber');
+const step2NextButton = document.getElementById('step2Next');
 const threadContainer = document.getElementById('threadContainer');
 const threadToggle = document.getElementById('threadToggle');
 const threadToggleIcon = document.getElementById('threadToggleIcon');
-const logoutButton = document.getElementById('logoutButton');
-const accountModeBadge = document.getElementById('accountModeBadge');
-const accountEmail = document.getElementById('accountEmail');
-const accountExports = document.getElementById('accountExports');
-const openLoginButton = document.getElementById('openLoginButton');
-const authStatus = document.getElementById('authStatus');
+const pairSummary = document.getElementById('pairSummary');
+const winMinimizeButton = document.getElementById('winMinimize');
+const winMaximizeButton = document.getElementById('winMaximize');
+const runFullExportButton = document.getElementById('runFullExport');
+const goToBackupButton = document.getElementById('goToBackup');
+const goToAnalysisButton = document.getElementById('goToAnalysis');
+const startCard = document.querySelector('.start-card');
+const userNumberDatalist = document.getElementById('userNumberOptions');
 
 let chatDbPath = null;
 let chatDbBookmark = null;
-let outputPath = null;
-let outputBookmark = null;
 let threadCollapsed = false;
-let accountState = null;
+let contactsByHandle = {};
+let selectedHandle = null;
+let contactsLoaded = false;
+let step3Completed = false;
+let currentBackupStep = 1;
+let backupFlowStarted = false;
 
-function getApi() {
-  return window.electronAPI || null;
+async function handleFullDiskAccessBlocked() {
+  statusLabel.textContent =
+    'macOS needs Full Disk Access for this app to read Messages. A settings window will open — toggle this app on, then click Browse again.';
+  statusLabel.className = 'status-label error';
+  await window.electronAPI.openFullDiskAccessSettings();
 }
 
-function sanitizeForFilename(value) {
-  return (value || 'unknown')
-    .replace(/[^\dA-Za-z+_-]+/g, '_')
-    .replace(/^_+|_+$/g, '')
-    .slice(0, 40) || 'unknown';
-}
+async function tryAutoFindChatDb({ fallbackToPicker } = { fallbackToPicker: true }) {
+  if (!window.electronAPI) return false;
 
-function setStatus(message, kind = '') {
-  if (!statusLabel) return;
-  statusLabel.textContent = message;
-  statusLabel.className = kind ? `status-label ${kind}` : 'status-label';
-}
-
-function setAuthStatus(message, kind = '') {
-  if (!authStatus) return;
-  if (!message) {
-    authStatus.textContent = '';
-    authStatus.className = 'sidebar-status hidden';
-    return;
-  }
-
-  authStatus.textContent = message;
-  authStatus.className = kind ? `sidebar-status ${kind}` : 'sidebar-status';
-}
-
-function setAuthBusy(isBusy) {
-  if (openLoginButton) openLoginButton.disabled = isBusy;
-}
-
-function updateChatDbLabels(path) {
-  const label = path || 'No database selected';
-  if (chatDbLabel) chatDbLabel.textContent = label;
-  if (chatDbLabelSecondary) chatDbLabelSecondary.textContent = path || 'No file selected';
-}
-
-function getSelectedHandle() {
-  return contactSelect ? contactSelect.value : '';
-}
-
-function buildSuggestedFilename() {
-  const myNumber = sanitizeForFilename(myNumberInput ? myNumberInput.value.trim() : '');
-  const otherNumber = sanitizeForFilename(getSelectedHandle());
-  return `conversation_${myNumber}_to_${otherNumber}.xml`;
-}
-
-function updateSelectedContactNumber() {
-  if (!selectedContactNumber) return;
-  const handle = getSelectedHandle();
-  selectedContactNumber.value = handle || 'No contact selected yet';
-}
-
-function updateAccountPanel(state) {
-  accountState = state;
-  if (!accountEmail || !accountModeBadge || !accountExports) return;
-
-  const signedIn = state?.mode === 'firebase' && state?.authenticated;
-  accountEmail.textContent = signedIn ? (state.email || 'Signed in') : 'Sign in (optional)';
-  accountModeBadge.textContent = signedIn ? 'Account' : 'Guest';
-  accountModeBadge.classList.toggle('guest', !signedIn);
-
-  const exportCount = Number(state?.exportCount || 0);
-  accountExports.textContent = signedIn
-    ? `${exportCount} export${exportCount === 1 ? '' : 's'} synced`
-    : 'Export count not synced';
-
-  if (logoutButton) {
-    logoutButton.classList.toggle('hidden', !signedIn);
-  }
-}
-
-function applyAuthState(state) {
-  updateAccountPanel(state);
-  if (state?.authenticated) {
-    setAuthStatus('Signed in. Export counts will sync to your account.', 'success');
-  } else {
-    setAuthStatus('');
-  }
-}
-
-async function openLoginPopup(message = 'Opening sign-in…') {
-  const api = getApi();
-  if (!api?.showLoginPopup) {
-    setAuthStatus('Sign-in is unavailable in this view.', 'error');
-    return { ok: false };
-  }
-
-  setAuthBusy(true);
-  setAuthStatus(message);
   try {
-    const result = await api.showLoginPopup();
-    if (!result?.ok) {
-      setAuthStatus(result?.error || 'Could not open sign-in.', 'error');
+    const auto = await window.electronAPI.autoFindChatDb();
+    if (auto && auto.ok && auto.path) {
+      chatDbPath = auto.path;
+      chatDbBookmark = auto.bookmark || null;
+      chatDbLabel.textContent = auto.path;
+      statusLabel.textContent = 'Found your Messages database automatically.';
+      statusLabel.className = 'status-label';
+      resetPreview();
+      updateSideSteps();
+      return true;
     }
-    return result;
-  } finally {
-    setAuthBusy(false);
-  }
-}
 
-async function pickDatabase() {
-  const api = getApi();
-  if (!api?.selectChatDb) {
-    setStatus('Desktop bridge unavailable. Restart the app.', 'error');
-    return;
+    if (auto && auto.permissionDenied) {
+      await handleFullDiskAccessBlocked();
+      return false;
+    }
+  } catch (_err) {
+    // fall through to manual picker
   }
 
-  const selected = await api.selectChatDb();
+  if (!fallbackToPicker) return false;
+
+  const selected = await window.electronAPI.selectChatDb();
   if (!selected) {
-    setStatus('No database selected.');
-    return;
+    statusLabel.textContent = 'No database selected.';
+    statusLabel.className = 'status-label';
+    return false;
   }
 
-  chatDbPath = selected.path;
+  chatDbPath = selected.path || selected;
   chatDbBookmark = selected.bookmark || null;
-  updateChatDbLabels(selected.path);
-  setStatus('Database selected. Loading contacts…');
+  chatDbLabel.textContent = chatDbPath;
+  statusLabel.textContent = 'Database selected. Click “Next: Pick a contact”.';
+  statusLabel.className = 'status-label';
   resetPreview();
-  await loadContacts();
+  updateSideSteps();
+  return true;
 }
 
-async function loadContacts() {
-  if (!loadContactsButton || !contactSelect || !threadContainer) return;
-  if (!chatDbPath) {
-    setStatus('Select your iPhone chat.db first.', 'error');
-    return;
-  }
+// Bridge auth from the login webview back to the main Electron process.
+webPreview = document.getElementById('loginWebview') || document.querySelector('.web-preview-frame');
+let hasFirebaseAuth = false;
+if (webPreview) {
+  webPreview.addEventListener('ipc-message', (event) => {
+    if (event.channel === 'desktop-auth' && event.args && event.args[0]) {
+      const payload = event.args[0];
+      if (window.electronAPI && typeof window.electronAPI.setFirebaseAuth === 'function') {
+        window.electronAPI.setFirebaseAuth(payload);
+      }
+      if (payload && payload.uid && payload.idToken) {
+        hasFirebaseAuth = true;
+      }
+    }
+  });
+}
 
-  loadContactsButton.disabled = true;
-  contactSelect.disabled = true;
-  threadContainer.innerHTML = '<div class="thread-placeholder">Loading contacts…</div>';
+// Window control buttons
+if (winMinimizeButton && window.electronAPI && typeof window.electronAPI.minimizeWindow === 'function') {
+  winMinimizeButton.addEventListener('click', () => {
+    window.electronAPI.minimizeWindow();
+  });
+}
 
-  try {
-    const result = await getApi().listContacts(chatDbPath, chatDbBookmark);
-    if (!result.ok) {
-      threadContainer.innerHTML = `<div class="thread-placeholder">Failed to load contacts: ${result.error}</div>`;
+if (winMaximizeButton && window.electronAPI && typeof window.electronAPI.toggleMaximizeWindow === 'function') {
+  winMaximizeButton.addEventListener('click', () => {
+    window.electronAPI.toggleMaximizeWindow();
+  });
+}
+
+// Side "Run export & analyze" button orchestrates:
+// 1) auto-find / select chat.db
+// 2) load contacts
+// 3) ensure number + contact
+// 4) trigger the existing export + upload flow.
+if (runFullExportButton) {
+  runFullExportButton.addEventListener('click', async () => {
+    if (!window.electronAPI) return;
+
+    // Ensure the Setup & backup section / view is active so users
+    // can see the backup steps progressing as setup runs.
+    openSetupSection();
+
+    // Mark the backup flow as started so that the intro
+    // collapses and the setup sections become visible.
+    backupFlowStarted = true;
+    if (startCard) {
+      startCard.classList.add('start-card-collapsed');
+    }
+    updateSideSteps();
+    updateStepSections();
+
+    // 1) Ensure we have a chat.db selected (try auto-find, then manual picker).
+    if (!chatDbPath) {
+      statusLabel.textContent = 'Finding your iPhone Messages database…';
+      statusLabel.className = 'status-label';
+
+      try {
+        const auto = await window.electronAPI.autoFindChatDb();
+        if (auto && auto.ok && auto.path) {
+          chatDbPath = auto.path;
+          chatDbBookmark = auto.bookmark || null;
+          chatDbLabel.textContent = auto.path;
+          statusLabel.textContent = 'Found your Messages database automatically.';
+          statusLabel.className = 'status-label';
+          resetPreview();
+        } else if (auto && auto.permissionDenied) {
+          await handleFullDiskAccessBlocked();
+          return;
+        }
+      } catch (_err) {
+        // ignore and fall through to manual picker
+      }
+
+      if (!chatDbPath) {
+        const selected = await window.electronAPI.selectChatDb();
+        if (!selected) {
+          statusLabel.textContent = 'No database selected. Choose your chat.db first.';
+          statusLabel.className = 'status-label error';
+          return;
+        }
+        chatDbPath = selected.path || selected;
+        chatDbBookmark = selected.bookmark || null;
+        chatDbLabel.textContent = chatDbPath;
+        statusLabel.textContent = 'Database selected.';
+        statusLabel.className = 'status-label';
+        resetPreview();
+      }
+    }
+
+    // 2) Ensure contacts are loaded.
+    if (!contactsLoaded) {
+      statusLabel.textContent = 'Loading contacts from your Messages database…';
+      statusLabel.className = 'status-label';
+      try {
+        await loadContacts();
+        contactsLoaded = true;
+        statusLabel.textContent =
+          'Contacts loaded. Enter your number and pick a contact, then the export will run.';
+        statusLabel.className = 'status-label';
+      } catch (err) {
+        statusLabel.textContent = 'Failed to load contacts: ' + (err.message || String(err));
+        statusLabel.className = 'status-label error';
+        return;
+      }
+    }
+
+    // 3) If phone number or contact is missing, prompt the user and stop.
+    const userNumber = (userNumberSelect && userNumberSelect.value || '').trim();
+    if (!userNumber || !selectedHandle) {
+      statusLabel.textContent =
+        'Enter your own number and pick a contact, then click “Next: Save Conversation”.';
+      statusLabel.className = 'status-label error';
+      updateSideSteps();
+      updateStepSections();
+      document.querySelector('.preview-step')?.scrollIntoView({ behavior: 'smooth' });
       return;
     }
 
-    populateContacts(result.contacts || []);
-    setStatus('Contacts loaded. Select a contact to preview and export.');
-  } catch (err) {
-    threadContainer.innerHTML = `<div class="thread-placeholder">Unexpected error: ${err.message || String(err)}</div>`;
-  } finally {
-    loadContactsButton.disabled = false;
-    contactSelect.disabled = false;
+    // 4) All set: trigger the existing export + upload flow.
+    if (step2NextButton) {
+      step2NextButton.click();
+    }
+  });
+}
+
+// Start view shortcuts
+if (goToBackupButton) {
+  goToBackupButton.addEventListener('click', async () => {
+    backupFlowStarted = true;
+    if (startCard) {
+      startCard.classList.add('start-card-collapsed');
+    }
+    updateSideSteps();
+    updateStepSections();
+
+    if (statusLabel) {
+      statusLabel.textContent = 'Finding your Messages database…';
+      statusLabel.className = 'status-label';
+    }
+
+    const firstStepSection = document.querySelector('.step-section[data-step-section="1"]');
+    if (firstStepSection) {
+      firstStepSection.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    const found = await tryAutoFindChatDb({ fallbackToPicker: true });
+    if (found && chatDbPath) {
+      try {
+        await loadContacts();
+        if (statusLabel) {
+          statusLabel.textContent = 'Database found. Enter your number and pick a contact.';
+          statusLabel.className = 'status-label success';
+        }
+        document.querySelector('.preview-step')?.scrollIntoView({ behavior: 'smooth' });
+      } catch (err) {
+        if (statusLabel) {
+          statusLabel.textContent = 'Found database but failed to load contacts: ' + (err.message || String(err));
+          statusLabel.className = 'status-label error';
+        }
+      }
+    }
+
+    updateSideSteps();
+    updateStepSections();
+  });
+}
+
+if (goToAnalysisButton) {
+  goToAnalysisButton.addEventListener('click', () => {
+    openLoginSection();
+  });
+}
+
+function updateSideSteps() {
+  const steps = document.querySelectorAll('.side-step');
+  if (!steps.length) return;
+
+  const userNumber = (userNumberSelect && userNumberSelect.value || '').trim();
+  let currentStep = 1;
+
+  if (!chatDbPath) {
+    currentStep = 1;
+  } else if (!contactsLoaded || !selectedHandle || !userNumber) {
+    currentStep = 2;
+  } else if (!step3Completed) {
+    currentStep = 3;
+  } else {
+    currentStep = 4;
   }
+
+  currentBackupStep = currentStep;
+
+  steps.forEach((step) => {
+    const index = Number(step.getAttribute('data-step') || '0');
+    step.classList.remove('side-step-active', 'side-step-complete');
+
+    const statusEl = step.querySelector('.side-step-status');
+    if (statusEl) {
+      statusEl.textContent = '';
+    }
+
+    if (index === currentStep) {
+      step.classList.add('side-step-active');
+    }
+
+    if (index === 1 && chatDbPath) {
+      step.classList.add('side-step-complete');
+      if (statusEl) statusEl.textContent = '✓ Completed';
+    }
+
+    if (index === 2 && contactsLoaded && selectedHandle && userNumber) {
+      step.classList.add('side-step-complete');
+      if (statusEl) statusEl.textContent = '✓ Completed';
+    }
+
+    if (index === 3 && step3Completed) {
+      step.classList.add('side-step-complete');
+      if (statusEl) statusEl.textContent = '✓ Completed';
+    }
+
+    if (index === 4 && step3Completed) {
+      step.classList.add('side-step-complete');
+      if (statusEl) statusEl.textContent = '✓ Completed';
+    }
+  });
+}
+
+function updateStepSections() {
+  const sections = document.querySelectorAll('.step-section');
+  if (!sections.length) return;
+
+  sections.forEach((section) => {
+    const index = Number(section.getAttribute('data-step-section') || '0');
+
+    if (index === 3) {
+      section.classList.add('step-section-active');
+      return;
+    }
+
+    if (!backupFlowStarted) {
+      section.classList.remove('step-section-active');
+      return;
+    }
+
+    if (index === 1) {
+      section.classList.add('step-section-active');
+      return;
+    }
+
+    if (index === 2) {
+      section.classList.toggle('step-section-active', !!chatDbPath);
+      return;
+    }
+
+    section.classList.remove('step-section-active');
+  });
 }
 
 if (pickChatDbButton) {
-  pickChatDbButton.addEventListener('click', pickDatabase);
-}
-
-if (pickChatDbSecondaryButton) {
-  pickChatDbSecondaryButton.addEventListener('click', pickDatabase);
-}
-
-if (pickOutputButton) {
-  pickOutputButton.addEventListener('click', async () => {
-    const selected = await getApi().selectOutputXml(buildSuggestedFilename());
-    if (!selected) {
-      setStatus('Output location unchanged.');
-      return;
-    }
-
-    outputPath = selected.path;
-    outputBookmark = selected.bookmark || null;
-    outputPathLabel.textContent = selected.path;
-    setStatus('Save location selected. Ready to extract the chosen conversation.');
+  pickChatDbButton.addEventListener('click', async () => {
+    await tryAutoFindChatDb({ fallbackToPicker: true });
   });
 }
 
-if (convertButton) {
-  convertButton.addEventListener('click', async () => {
-    if (!chatDbPath) {
-      setStatus('Select your iPhone chat.db first.', 'error');
-      return;
-    }
+if (step1NextButton) {
+  step1NextButton.addEventListener('click', async () => {
+  if (!chatDbPath) {
+    statusLabel.textContent = 'Select your iPhone chat.db first.';
+    statusLabel.className = 'status-label error';
+    return;
+  }
 
-    const handle = getSelectedHandle();
-    if (!handle) {
-      setStatus('Select the other person\'s contact number first.', 'error');
-      return;
-    }
+  step1NextButton.disabled = true;
+  statusLabel.textContent = 'Loading contacts…';
+  statusLabel.className = 'status-label';
 
-    const myNumber = myNumberInput ? myNumberInput.value.trim() : '';
-    if (!myNumber) {
-      setStatus('Enter your own phone number before extracting the conversation.', 'error');
-      return;
-    }
+  try {
+    await loadContacts();
+    document.querySelector('.preview-step').scrollIntoView({ behavior: 'smooth' });
+    statusLabel.textContent =
+      'Enter your phone number, pick a contact, then click “Next: Save XML”.';
+    statusLabel.className = 'status-label';
+  } catch (err) {
+    statusLabel.textContent = 'Failed to load contacts: ' + (err.message || String(err));
+    statusLabel.className = 'status-label error';
+  } finally {
+    step1NextButton.disabled = false;
+  }
 
-    convertButton.disabled = true;
-    if (pickChatDbButton) pickChatDbButton.disabled = true;
-    if (pickChatDbSecondaryButton) pickChatDbSecondaryButton.disabled = true;
-    pickOutputButton.disabled = true;
-    loadContactsButton.disabled = true;
-    contactSelect.disabled = true;
-    if (myNumberInput) myNumberInput.disabled = true;
-    setStatus('Extracting conversation XML… this may take a moment.');
+  updateSideSteps();
+  updateStepSections();
+  });
+}
 
-    try {
-      let output = outputPath;
-      if (!output) {
-        const selected = await getApi().selectOutputXml(buildSuggestedFilename());
-        if (!selected) {
-          setStatus('Extraction canceled: no output file selected.', 'error');
-          return;
-        }
-
-        outputPath = selected.path;
-        outputBookmark = selected.bookmark || null;
-        output = selected.path;
-        outputPathLabel.textContent = selected.path;
-      }
-
-      const result = await getApi().convertThread(
-        chatDbPath,
-        handle,
-        output,
-        chatDbBookmark,
-        outputBookmark
-      );
-
-      if (!result.ok) {
-        setStatus(`Extraction failed: ${result.error}`, 'error');
-        return;
-      }
-
-      const exportResult = await getApi().recordExport();
-      if (exportResult.ok) {
-        updateAccountPanel(exportResult.state);
-      }
-
-      setStatus(`Done! The selected conversation XML is ready at:\n${output}`, 'success');
-    } catch (err) {
-      setStatus(`Unexpected error: ${err.message || String(err)}`, 'error');
-    } finally {
-      convertButton.disabled = false;
-      if (pickChatDbButton) pickChatDbButton.disabled = false;
-      if (pickChatDbSecondaryButton) pickChatDbSecondaryButton.disabled = false;
-      pickOutputButton.disabled = false;
-      loadContactsButton.disabled = false;
-      contactSelect.disabled = false;
-      if (myNumberInput) myNumberInput.disabled = false;
+if (userNumberSelect) {
+  userNumberSelect.addEventListener('input', () => {
+    updatePairSummary();
+    updateSideSteps();
+    updateStepSections();
+    if (selectedHandle && chatDbPath) {
+      void loadThreadPreview(selectedHandle);
     }
   });
 }
 
-if (threadToggle) {
+async function loadThreadPreview(handle) {
+  if (!handle || !chatDbPath || !threadContainer || !window.electronAPI) {
+    return;
+  }
+
+  threadContainer.innerHTML = '<div class="thread-placeholder">Loading conversation…</div>';
+
+  try {
+    const result = await window.electronAPI.getThread(chatDbPath, handle, chatDbBookmark);
+    if (!result.ok) {
+      threadContainer.innerHTML = '<div class="thread-placeholder">Failed to load conversation: ' +
+        (result.error || 'Unknown error') + '</div>';
+      return;
+    }
+
+    renderThread(result.messages || []);
+  } catch (err) {
+    threadContainer.innerHTML = '<div class="thread-placeholder">Unexpected error: ' +
+      (err.message || String(err)) + '</div>';
+  }
+}
+
+if (threadToggle && threadContainer && threadToggleIcon) {
   threadToggle.addEventListener('click', () => {
     threadCollapsed = !threadCollapsed;
     if (threadCollapsed) {
@@ -291,167 +666,301 @@ if (threadToggle) {
   });
 }
 
-if (loadContactsButton) {
-  loadContactsButton.addEventListener('click', loadContacts);
-}
-
 if (contactSelect) {
   contactSelect.addEventListener('change', async () => {
-    const handle = contactSelect.value;
-    updateSelectedContactNumber();
-    if (!handle) {
-      threadContainer.innerHTML = '<div class="thread-placeholder">Pick a contact to view your message history.</div>';
+  const handle = contactSelect.value;
+  if (!handle) {
+    selectedHandle = null;
+    threadContainer.innerHTML = '<div class="thread-placeholder">Pick a contact to view your message history.</div>';
+    updatePairSummary();
+    return;
+  }
+
+  selectedHandle = handle;
+  updatePairSummary();
+  updateSideSteps();
+
+  if (!chatDbPath) return;
+
+  await loadThreadPreview(handle);
+  });
+}
+
+if (step2NextButton) {
+  step2NextButton.addEventListener('click', async () => {
+  if (!chatDbPath) {
+    statusLabel.textContent = 'Select your iPhone chat.db first.';
+    statusLabel.className = 'status-label error';
+    return;
+  }
+
+  const userNumber = (userNumberSelect && userNumberSelect.value || '').trim();
+  if (!userNumber) {
+    statusLabel.textContent = 'Select your own phone number first.';
+    statusLabel.className = 'status-label error';
+    return;
+  }
+
+  if (!selectedHandle) {
+    statusLabel.textContent = 'Pick a contact to export.';
+    statusLabel.className = 'status-label error';
+    return;
+  }
+
+  step2NextButton.disabled = true;
+  if (pickChatDbButton) pickChatDbButton.disabled = true;
+  statusLabel.textContent = 'Choose where to save your XML…';
+  statusLabel.className = 'status-label';
+
+  try {
+    const outputPath = await window.electronAPI.selectOutputXml();
+    if (!outputPath) {
+      statusLabel.textContent = 'Export canceled: no output file selected.';
+      statusLabel.className = 'status-label error';
       return;
     }
 
-    if (!chatDbPath) return;
+    statusLabel.textContent = 'Creating XML for this conversation…';
+    const contactNumber = selectedHandle;
 
-    threadContainer.innerHTML = '<div class="thread-placeholder">Loading conversation…</div>';
+    const result = await window.electronAPI.convertConversation(
+      chatDbPath,
+      selectedHandle,
+      userNumber,
+      contactNumber,
+      outputPath,
+      chatDbBookmark
+    );
 
-    try {
-      const result = await getApi().getThread(chatDbPath, handle, chatDbBookmark);
-      if (!result.ok) {
-        threadContainer.innerHTML = `<div class="thread-placeholder">Failed to load conversation: ${result.error}</div>`;
-        return;
+    if (result.ok) {
+      statusLabel.textContent = 'Done! XML saved for this conversation at:\n' + outputPath;
+      statusLabel.className = 'status-label success';
+
+      const fileNameParts = outputPath.split(/[/\\]/);
+      const fileName = fileNameParts[fileNameParts.length - 1] || 'conversation.xml';
+
+      try {
+        const uploadResult = await window.electronAPI.uploadXmlToFirebase(outputPath, fileName);
+        if (!uploadResult || !uploadResult.ok) {
+          console.error('Firebase upload failed:', uploadResult && uploadResult.error);
+          statusLabel.textContent = 'Done! XML saved for this conversation at:\n' + outputPath;
+          statusLabel.className = 'status-label success';
+          step3Completed = true;
+          updateSideSteps();
+        } else {
+          statusLabel.textContent =
+            'Done! XML saved for this conversation at:\n' + outputPath;
+          statusLabel.className = 'status-label success';
+
+          step3Completed = true;
+          updateSideSteps();
+        }
+      } catch (uploadErr) {
+        console.error('Unexpected error during Firebase upload:', uploadErr);
+        statusLabel.textContent = 'Done! XML saved for this conversation at:\n' + outputPath;
+        statusLabel.className = 'status-label success';
+        step3Completed = true;
+        updateSideSteps();
       }
-
-      renderThread(result.messages || []);
-      setStatus('Ready to extract XML for this specific conversation.');
-    } catch (err) {
-      threadContainer.innerHTML = `<div class="thread-placeholder">Unexpected error: ${err.message || String(err)}</div>`;
+    } else {
+      statusLabel.textContent = 'Export failed: ' + result.error;
+      statusLabel.className = 'status-label error';
     }
+  } catch (err) {
+    statusLabel.textContent = 'Unexpected error while exporting: ' + (err.message || String(err));
+    statusLabel.className = 'status-label error';
+  } finally {
+    step2NextButton.disabled = false;
+    if (pickChatDbButton) pickChatDbButton.disabled = false;
+  }
+
+  updateSideSteps();
+  updateStepSections();
   });
 }
 
-if (openLoginButton) {
-  openLoginButton.addEventListener('click', async () => {
-    if (accountState?.authenticated) {
-      return;
-    }
-    await openLoginPopup('Opening sign-in window…');
-  });
-}
+async function loadContacts() {
+  if (!chatDbPath) {
+    throw new Error('No chat.db selected');
+  }
+  if (!contactSelect || !threadContainer) {
+    throw new Error('Contact UI is not ready');
+  }
 
-if (logoutButton) {
-  logoutButton.addEventListener('click', async () => {
-    const result = await getApi().signOut();
+  contactSelect.disabled = true;
+  threadContainer.innerHTML = '<div class="thread-placeholder">Loading contacts…</div>';
+
+  try {
+    const result = await window.electronAPI.listContacts(chatDbPath, chatDbBookmark);
     if (!result.ok) {
-      setAuthStatus(result.error || 'Could not sign out.', 'error');
-      return;
+      threadContainer.innerHTML =
+        '<div class="thread-placeholder">Failed to load contacts: ' + result.error + '</div>';
+      throw new Error(result.error || 'Failed to load contacts');
     }
 
-    applyAuthState(result.state);
-    setStatus('Signed out. You can keep exporting locally without an account.');
-  });
+    await populateContacts(result.contacts || []);
+  } finally {
+    contactSelect.disabled = false;
+  }
 }
 
-function populateContacts(contacts) {
-  if (!contactSelect || !threadContainer) return;
+async function populateContacts(contacts) {
+  if (!contactSelect || !threadContainer) {
+    return;
+  }
 
   contactSelect.innerHTML = '<option value="">Select a contact…</option>';
+  contactsByHandle = {};
+  contactsLoaded = false;
 
   if (!contacts.length) {
     threadContainer.innerHTML = '<div class="thread-placeholder">No contacts found in this database.</div>';
     return;
   }
 
-  for (const contact of contacts) {
+  for (const c of contacts) {
+    contactsByHandle[c.handle] = c;
     const option = document.createElement('option');
-    option.value = contact.handle;
-    option.textContent = `${contact.handle} (${contact.messageCount} messages)`;
+    option.value = c.handle;
+    option.textContent = `${c.handle} (${c.messageCount} messages)`;
     contactSelect.appendChild(option);
   }
 
   threadContainer.innerHTML = '<div class="thread-placeholder">Select a contact to view your messages.</div>';
+  updatePairSummary();
+  contactsLoaded = true;
+
+  if (window.electronAPI?.listOwnNumberSuggestions) {
+    try {
+      const suggestions = await window.electronAPI.listOwnNumberSuggestions(chatDbPath, chatDbBookmark);
+      if (suggestions?.ok && userNumberDatalist) {
+        userNumberDatalist.innerHTML = '';
+        for (const handle of suggestions.suggestions || []) {
+          const opt = document.createElement('option');
+          opt.value = handle;
+          userNumberDatalist.appendChild(opt);
+        }
+        if (userNumberSelect && !userNumberSelect.value.trim() && suggestions.suggestions?.length) {
+          userNumberSelect.value = suggestions.suggestions[0];
+          updatePairSummary();
+        }
+      }
+    } catch {
+      // Suggestions are optional.
+    }
+  } else if (userNumberDatalist) {
+    const seen = new Set();
+    userNumberDatalist.innerHTML = '';
+    for (const c of contacts) {
+      if (!c.handle || seen.has(c.handle)) continue;
+      seen.add(c.handle);
+      const opt = document.createElement('option');
+      opt.value = c.handle;
+      userNumberDatalist.appendChild(opt);
+    }
+  }
+
+  updateSideSteps();
+  updateStepSections();
 }
 
 function renderThread(messages) {
-  if (!threadContainer || !threadToggleIcon) return;
-
-  if (!messages.length) {
-    threadContainer.innerHTML = '<div class="thread-placeholder">No messages to show for this contact.</div>';
+  if (!threadContainer) {
     return;
   }
 
-  const table = document.createElement('table');
-  table.className = 'thread-table';
+  const readable = (messages || []).filter((msg) => msg.body && msg.body !== '[Message]');
 
-  const thead = document.createElement('thead');
-  const headerRow = document.createElement('tr');
-
-  const thDir = document.createElement('th');
-  thDir.textContent = 'Direction';
-  thDir.className = 'col-direction';
-  headerRow.appendChild(thDir);
-
-  const thTime = document.createElement('th');
-  thTime.textContent = 'Time';
-  thTime.className = 'col-timestamp';
-  headerRow.appendChild(thTime);
-
-  const thBody = document.createElement('th');
-  thBody.textContent = 'Message';
-  headerRow.appendChild(thBody);
-
-  thead.appendChild(headerRow);
-  table.appendChild(thead);
-
-  const tbody = document.createElement('tbody');
-  for (const message of messages) {
-    const tr = document.createElement('tr');
-
-    const tdDir = document.createElement('td');
-    tdDir.textContent = message.isFromMe ? 'Me' : 'Them';
-    tr.appendChild(tdDir);
-
-    const tdTime = document.createElement('td');
-    tdTime.textContent = message.dateMs ? new Date(message.dateMs).toLocaleString() : '';
-    tr.appendChild(tdTime);
-
-    const tdBody = document.createElement('td');
-    tdBody.textContent = message.body || '';
-    tr.appendChild(tdBody);
-
-    tbody.appendChild(tr);
+  if (!readable.length) {
+    threadContainer.innerHTML = '<div class="thread-placeholder">No readable messages to show for this contact.</div>';
+    return;
   }
 
-  table.appendChild(tbody);
+  const snippetSize = 60;
+  const snippet = readable.slice(-snippetSize);
+
+  const container = document.createElement('div');
+  container.className = 'message-thread';
+
+  for (const msg of snippet) {
+    const row = document.createElement('div');
+    row.className = 'message-row ' + (msg.isFromMe ? 'me' : 'them');
+
+    const bubble = document.createElement('div');
+    bubble.className = 'message-bubble';
+    bubble.textContent = msg.body;
+    row.appendChild(bubble);
+
+    const meta = document.createElement('div');
+    meta.className = 'message-meta';
+    if (msg.dateMs) {
+      meta.textContent = new Date(msg.dateMs).toLocaleString();
+    } else {
+      meta.textContent = msg.isFromMe ? 'You' : 'Them';
+    }
+    row.appendChild(meta);
+
+    container.appendChild(row);
+  }
+
   threadContainer.innerHTML = '';
-  threadContainer.appendChild(table);
+  threadContainer.appendChild(container);
+  threadContainer.scrollTop = threadContainer.scrollHeight;
 
   threadCollapsed = false;
   threadContainer.classList.remove('collapsed');
-  threadToggleIcon.textContent = '▾';
+  if (threadToggleIcon) {
+    threadToggleIcon.textContent = '▾';
+  }
 }
 
 function resetPreview() {
-  if (!contactSelect || !threadContainer || !threadToggleIcon) return;
-  contactSelect.innerHTML = '<option value="">Select a contact…</option>';
-  contactSelect.disabled = true;
-  updateSelectedContactNumber();
-  threadContainer.innerHTML = '<div class="thread-placeholder">Pick a contact to view your message history.</div>';
-  threadCollapsed = false;
-  threadContainer.classList.remove('collapsed');
-  threadToggleIcon.textContent = '▾';
-}
-
-async function bootstrap() {
-  const api = getApi();
-  if (api?.getAuthState) {
-    const state = await api.getAuthState();
-    applyAuthState(state);
+  if (contactSelect) {
+    contactSelect.innerHTML = '<option value="">Select a contact…</option>';
   }
-  setStatus('Ready — browse a database to begin.');
+  if (threadContainer) {
+    threadContainer.innerHTML = '<div class="thread-placeholder">Pick a contact to view your message history.</div>';
+  }
+  threadCollapsed = false;
+  if (threadContainer) {
+    threadContainer.classList.remove('collapsed');
+  }
+  if (threadToggleIcon) {
+    threadToggleIcon.textContent = '▾';
+  }
+  contactsLoaded = false;
+  selectedHandle = null;
+
+  if (userNumberSelect) {
+    userNumberSelect.value = '';
+  }
+
+  if (userNumberDatalist) {
+    userNumberDatalist.innerHTML = '';
+  }
+
+  step3Completed = false;
+  updateSideSteps();
+  updateStepSections();
 }
 
-void bootstrap();
+function updatePairSummary() {
+  if (!pairSummary) return;
 
-const api = getApi();
-if (api?.onAuthStateChanged) {
-  api.onAuthStateChanged((state) => {
-    applyAuthState(state);
-    if (state?.authenticated) {
-      setStatus('Signed in. Export counts will sync when you extract XML.', 'success');
-    }
-  });
+  const userNumber = (userNumberSelect && userNumberSelect.value || '').trim();
+  const contact = selectedHandle || '';
+
+  if (userNumber && contact) {
+    pairSummary.textContent =
+      `Clarified will export the full conversation between ${userNumber} (you) and ${contact} into a single XML file.`;
+  } else if (userNumber && !contact) {
+    pairSummary.textContent =
+      'Enter your number, then pick a contact to export your full conversation as XML.';
+  } else if (!userNumber && contact) {
+    pairSummary.textContent =
+      'Pick a contact and enter your own number so Clarified can export the full conversation between you and that contact.';
+  } else {
+    pairSummary.textContent =
+      'Once you’ve entered your number and picked a contact, Clarified will export the full conversation between your number and that contact into a single XML file.';
+  }
 }

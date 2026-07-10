@@ -15,26 +15,45 @@ async function openWorkspaceView() {
 
 function initWelcomePage() {
   const continueButton = document.getElementById('continueButton');
-  if (!continueButton) {
-    return;
-  }
+  const navBackupButton = document.getElementById('navBackupButton');
+  const openWebAppButton = document.getElementById('openWebAppButton');
 
-  continueButton.addEventListener('click', async () => {
-    continueButton.disabled = true;
-    continueButton.textContent = 'Opening local SMS app…';
+  const goToBackup = async (button) => {
+    if (button) {
+      button.disabled = true;
+    }
 
     try {
       const result = await openWorkspaceView();
-      if (result && result.ok === false) {
-        continueButton.disabled = false;
-        continueButton.textContent = 'Continue to Local SMS App';
+      if (result && result.ok === false && button) {
+        button.disabled = false;
       }
     } catch {
-      continueButton.disabled = false;
-      continueButton.textContent = 'Continue to Local SMS App';
+      if (button) {
+        button.disabled = false;
+      }
       window.location.href = 'index.html';
     }
-  });
+  };
+
+  if (continueButton) {
+    continueButton.addEventListener('click', () => goToBackup(continueButton));
+  }
+
+  if (navBackupButton) {
+    navBackupButton.addEventListener('click', () => goToBackup(navBackupButton));
+  }
+
+  if (openWebAppButton) {
+    openWebAppButton.addEventListener('click', async () => {
+      const api = window.electronAPI;
+      if (api?.showLoginPopup) {
+        await api.showLoginPopup();
+        return;
+      }
+      await goToBackup(null);
+    });
+  }
 }
 
 if (document.readyState === 'loading') {
