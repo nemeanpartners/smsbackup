@@ -95,7 +95,7 @@ function finalizeMessageRow(row) {
   });
 
   if (!mapped.body) {
-    mapped.body = mapped.hasAttachment ? '[Attachment]' : '[Message]';
+    mapped.body = mapped.hasAttachment ? '[Attachment]' : '[Undecoded message]';
   }
 
   return mapped;
@@ -124,7 +124,7 @@ function escapeXmlAttribute(value) {
 }
 
 function buildSmsBackupXmlCompact(messages, defaultAddress) {
-  const exportMessages = messages.filter((message) => message.body && message.body !== '[Message]');
+  const exportMessages = messages.filter((message) => message.body);
   const lines = [
     '<?xml version="1.0" encoding="UTF-8"?>',
     `<smses count="${exportMessages.length}">`
@@ -172,7 +172,7 @@ async function fetchMessages(chatDbPath) {
   const rows = [];
   while (stmt.step()) {
     const mapped = finalizeMessageRow(stmt.getAsObject());
-    if (mapped.body && mapped.body !== '[Message]') {
+    if (mapped.body) {
       rows.push(mapped);
     }
   }
@@ -338,9 +338,9 @@ async function convertThreadToXml(chatDbPath, handle, outputPath) {
   }
 
   const { messages } = await fetchThreadForHandle(chatDbPath, handle);
-  const exportMessages = messages.filter((message) => message.body && message.body !== '[Message]');
+  const exportMessages = messages.filter((message) => message.body);
   if (!exportMessages.length) {
-    throw new Error('No readable messages were found for this contact.');
+    throw new Error('No message rows were found for this contact.');
   }
 
   const xml = buildSmsBackupXmlCompact(exportMessages, handle);

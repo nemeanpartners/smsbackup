@@ -38,7 +38,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
       previewLimit: options.previewLimit
     }),
 
-  // Clarified desktop UI compatibility
+  // SMSBackup desktop UI compatibility
   autoFindChatDb: async () => {
     const access = await ipcRenderer.invoke('ensure-chat-db-access', { promptIfNeeded: true });
     if (access?.ok && access.selection?.path) {
@@ -79,10 +79,6 @@ const HOSTED_LOGIN_URL = 'https://message-backup-web-dashboard-206706021143.asia
 const hostedOrigin = new URL(HOSTED_LOGIN_URL).origin;
 
 async function initHostedLoginBridge() {
-  if (window.location.origin !== hostedOrigin) {
-    return;
-  }
-
   const params = new URLSearchParams(window.location.search);
   if (params.get('loginPopup') !== '1') {
     return;

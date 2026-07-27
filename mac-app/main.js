@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, Menu } = require('electron');
 const http = require('http');
 const path = require('path');
 const os = require('os');
@@ -14,8 +14,10 @@ const {
   saveStoredChatDbSelection,
   resolveChatDbAutomatically
 } = require('./chat-db-access');
+const packageConfig = require('./package.json');
 
 const HOSTED_LOGIN_URL = 'https://message-backup-web-dashboard-206706021143.asia-southeast1.run.app';
+const DESKTOP_BUILD = packageConfig.build?.buildVersion || packageConfig.version || 'dev';
 
 let mainWindow;
 let loginWindow;
@@ -182,7 +184,7 @@ async function pickChatDbFileDialog() {
   const defaultChatDbPath = getDefaultChatDbPath();
 
   const result = await dialog.showOpenDialog(getDialogParentWindow(), {
-    title: 'Allow Clarified to access your Messages database',
+    title: 'Allow SMSBackup to access your Messages database',
     message: 'Select chat.db so macOS can grant read access. The app only reads the file you choose.',
     buttonLabel: 'Allow Access',
     defaultPath: isReadableFile(defaultChatDbPath) ? defaultChatDbPath : messagesDir,
@@ -275,6 +277,8 @@ async function buildLoginUrl(options = {}) {
   const url = new URL(HOSTED_LOGIN_URL);
   url.searchParams.set('desktop', '1');
   url.searchParams.set('loginPopup', '1');
+  url.searchParams.set('desktopBuild', DESKTOP_BUILD);
+  url.searchParams.set('desktopCacheBust', String(Date.now()));
   if (options.signOutFirst) {
     url.searchParams.set('desktopSignOut', '1');
   }
@@ -295,7 +299,7 @@ async function showLoginPopup(options = {}) {
     closable: true,
     parent: mainWindow,
     show: false,
-    title: 'Clarified Sign In',
+    title: 'SMSBackup Sign In',
     backgroundColor: '#0b0f19',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -326,7 +330,11 @@ async function showLoginPopup(options = {}) {
 
 function attachWindowOpenHandler(win, parentWindow = null) {
   win.webContents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith('https://accounts.google.com') || url.startsWith('https://apis.google.com')) {
+    if (
+      url.startsWith('https://accounts.google.com') ||
+      url.startsWith('https://apis.google.com') ||
+      url.startsWith('https://appleid.apple.com')
+    ) {
       return {
         action: 'allow',
         overrideBrowserWindowOptions: {
@@ -370,6 +378,91 @@ function closeLoginPopup() {
   }
 }
 
+function showMainWindow() {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    createWindow();
+    return;
+  }
+
+  if (!mainWindow.isVisible()) {
+    mainWindow.show();
+  }
+
+  if (mainWindow.isMinimized()) {
+    mainWindow.restore();
+  }
+
+  mainWindow.focus();
+}
+
+function installApplicationMenu() {
+  const template = [
+    {
+      label: app.name,
+      submenu: [
+        { role: 'about' },
+        { type: 'separator' },
+        { role: 'services' },
+        { type: 'separator' },
+        { role: 'hide' },
+        { role: 'hideOthers' },
+        { role: 'unhide' },
+        { type: 'separator' },
+        { role: 'quit' }
+      ]
+    },
+    {
+      label: 'File',
+      submenu: [
+        {
+          label: 'Open SMSBackup Window',
+          accelerator: 'CommandOrControl+O',
+          click: showMainWindow
+        },
+        { type: 'separator' },
+        { role: 'close' }
+      ]
+    },
+    {
+      label: 'Edit',
+      submenu: [
+        { role: 'undo' },
+        { role: 'redo' },
+        { type: 'separator' },
+        { role: 'cut' },
+        { role: 'copy' },
+        { role: 'paste' },
+        { role: 'selectAll' }
+      ]
+    },
+    {
+      label: 'Window',
+      submenu: [
+        { role: 'minimize' },
+        { role: 'zoom' },
+        { type: 'separator' },
+        {
+          label: 'Show SMSBackup',
+          accelerator: 'CommandOrControl+Shift+O',
+          click: showMainWindow
+        },
+        { role: 'front' }
+      ]
+    },
+    {
+      label: 'Help',
+      submenu: [
+        {
+          label: 'Open Message Backup Website',
+          click: () => shell.openExternal(HOSTED_LOGIN_URL)
+        }
+      ]
+    }
+  ];
+
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1420,
@@ -378,7 +471,7 @@ function createWindow() {
     minHeight: 760,
     resizable: true,
     show: false,
-    title: 'Clarified',
+    title: 'SMSBackup',
     backgroundColor: '#05060a',
       webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -414,6 +507,7 @@ app.whenReady().then(() => {
     configPath: path.join(__dirname, 'firebase-config.json')
   });
 
+  installApplicationMenu();
   createWindow();
 });
 
@@ -432,9 +526,7 @@ app.on('window-all-closed', () => {
 });
 
 app.on('activate', () => {
-  if (mainWindow === null) {
-    createWindow();
-  }
+  showMainWindow();
 });
 
 ipcMain.handle('auto-resolve-chat-db', async () => {
@@ -520,7 +612,7 @@ ipcMain.handle('convert-sms', async (event, { chatDbPath, chatDbBookmark, output
 ipcMain.handle('get-login-popup-config', async (event, options = {}) => {
   return {
     url: await buildLoginUrl(options),
-    preloadPath: path.join(__dirname, 'preload.js')
+    preloadPath: path.join(__dirname, 'renderer', 'webview-preload.js')
   };
 });
 
@@ -578,6 +670,7 @@ ipcMain.handle('auth-continue-guest', async () => {
 ipcMain.handle('auth-sign-out', async () => {
   try {
     const state = await authService.signOut();
+    clarifiedFirebaseAuth = { uid: null, idToken: null };
     closeLoginPopup();
     notifyAuthState(state);
     return { ok: true, state };
@@ -604,6 +697,10 @@ ipcMain.handle('auth-adopt-remote-session', async (event, payload) => {
   try {
     writeBridgeLog(`Adopting hosted session for user ${payload?.userId || 'unknown'}.`);
     const state = await authService.adoptRemoteSession(payload);
+    clarifiedFirebaseAuth = {
+      uid: payload?.userId || null,
+      idToken: payload?.idToken || null
+    };
     notifyAuthState(state);
     closeLoginPopup();
     focusMainWindow();
@@ -651,6 +748,10 @@ ipcMain.handle('auth-open-local-workspace-with-session', async (event, payload) 
   try {
     writeBridgeLog(`Atomic open requested for hosted user ${payload?.userId || 'unknown'}.`);
     const state = await authService.adoptRemoteSession(payload);
+    clarifiedFirebaseAuth = {
+      uid: payload?.userId || null,
+      idToken: payload?.idToken || null
+    };
     closeLoginPopup();
     await loadNativeApp();
     focusMainWindow();

@@ -3,7 +3,7 @@
 
 <head>
   <meta charset="UTF-8" />
-  <title>Clarified</title>
+  <title>SMSBackup</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 
@@ -70,10 +70,11 @@
       <!-- Login / Sign Up -->
       <div class="side-section">
         <button class="side-section-toggle" data-section="profile">
-          <span class="side-section-label">Login / Sign Up</span>
+          <span class="side-section-label" id="profileSectionLabel">Login / Sign Up</span>
           <span class="side-section-arrow"></span>
         </button>
       </div>
+
     </aside>
 
     <div class="view-container">
@@ -89,11 +90,8 @@
               <span>↔︎</span>
             </div>
             <div class="title-block">
-              <h1>Clarified</h1>
-              <p>Welcome. Back up your iPhone Messages and analyze your conversations securely, locally, and calmly.</p>
-              <div class="start-hint-bubble">
-                After uploading these, it's recommended to use the Clarified messages for additional and future conversation analysis.
-              </div>
+              <h1>SMSBackup</h1>
+              <p>Welcome. Back up your iPhone Messages securely and locally.</p>
             </div>
             <div class="window-controls">
               <button id="winMinimize" class="window-btn" title="Minimize">–</button>
@@ -110,21 +108,21 @@
                   </div>
                   <h2>Start backup &amp; sync</h2>
                   <p class="hint">
-                    In one guided session, Clarified will safely prepare a conversation backup on your Mac and sync it to your Clarified profile for analysis.
+                    In one guided session, SMSBackup will safely prepare a conversation backup on your Mac and sync it to your profile.
                   </p>
                 </div>
 
                 <div class="start-steps">
                   <h3 class="start-steps-title">This session will:</h3>
                   <ol class="start-steps-list">
-                    <li><span class="start-step-label">Open the Clarified web app so you can sign in.</span></li>
+                    <li><span class="start-step-label">Open the SMSBackup web app so you can sign in.</span></li>
                     <li><span class="start-step-label">Find your Messages database and let you choose a conversation.</span></li>
-                    <li><span class="start-step-label">Save that conversation and upload it to Clarified for insights and reports.</span></li>
+                    <li><span class="start-step-label">Save that conversation and upload it to your account.</span></li>
                   </ol>
                   <p class="start-footnote">Nothing is uploaded until you confirm, and you can stop at any time.</p>
                   <div class="start-actions">
                     <button id="goToBackup" class="btn primary">Start backup &amp; sync</button>
-                    <button id="goToAnalysis" class="btn ghost">Open Clarified web app</button>
+                    <button id="goToAnalysis" class="btn ghost">Open SMSBackup web app</button>
                   </div>
                 </div>
               </div>
@@ -162,7 +160,7 @@
                   </div>
                   <div class="side-step" data-step="4">
                     <span class="side-step-index">4</span>
-                    <span class="side-step-label">Save &amp; review analysis</span>
+                    <span class="side-step-label">Save &amp; review backup</span>
                     <span class="side-step-status"></span>
                   </div>
                 </div>
@@ -183,7 +181,7 @@
 
             <section class="step step-section preview-step" data-step-section="2">
               <h2>2. Pick a contact &amp; preview</h2>
-              <p class="hint">Clarified exports one full conversation at a time. The preview only shows a small snippet.</p>
+              <p class="hint">SMSBackup exports one full conversation at a time. The preview only shows a small snippet.</p>
               <div class="preview-controls">
                 <label class="inline-label">
                   <span>Your phone number</span>
@@ -204,7 +202,7 @@
                 </label>
               </div>
               <div id="pairSummary" class="pair-summary">
-                Once you’ve entered your number and picked a contact, Clarified will export the full conversation between your number and that contact into a single XML file.
+                Once you’ve entered your number and picked a contact, SMSBackup will export the full conversation between your number and that contact into a single XML file.
               </div>
               <div class="thread-shell">
                 <div id="threadToggle" class="thread-toggle">
@@ -236,6 +234,7 @@
           id="loginWebview"
           class="web-preview-frame"
           src="about:blank"
+          partition="persist:messagebackup-auth"
           preload="webview-preload.js"
           allowpopups
         ></webview>

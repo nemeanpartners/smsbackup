@@ -1,3 +1,4 @@
+const { buildSmsBackupXmlCompact } = require('../converter');
 const { extractMessageBody, isLikelyReadableText } = require('../message-body');
 const { parseAttributedBody } = require('../vendor/imessage-parser');
 
@@ -23,6 +24,10 @@ const sampleBlob = buildSampleAttributedBody(sampleText);
 
 assert(!isLikelyReadableText('\uFFFD'), 'replacement char should be rejected');
 assert(!isLikelyReadableText('\x01'), 'control char text should be rejected');
+assert(
+  !isLikelyReadableText('ᵘᵡ梧挤懂孺愚欻▰▰▰淍予淍荵挽柿湯穴匆械怖昭憐攵涸散穴抽摯拙燎戲泠慧'),
+  'binary-shaped unicode garbage should be rejected'
+);
 assert(isLikelyReadableText('0426678714'), 'phone numbers should be readable');
 assert(
   parseAttributedBody(sampleBlob).text.includes('Yes u obv look'),
@@ -39,6 +44,15 @@ assert(
 assert(
   extractMessageBody('Plain text message', null) === 'Plain text message',
   'plain text column should still work'
+);
+assert(
+  extractMessageBody('https://scentmethod.com/products/palo-santo-fragrance-oil', sampleBlob) ===
+    'https://scentmethod.com/products/palo-santo-fragrance-oil',
+  'readable message.text should not be overridden by a longer attributed body'
+);
+assert(
+  buildSmsBackupXmlCompact([{ body: '[Undecoded message]', dateMs: 1, isFromMe: false }]).includes('count="1"'),
+  'undecoded real message rows should still export'
 );
 
 console.log('message-body tests passed');

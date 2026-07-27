@@ -1,0 +1,6 @@
+{
+  "name": "Message Backup Web Dashboard",
+  "description": "Companion web dashboard for the Message Backup macOS desktop application, featuring backup synchronization oversight, message viewer, and API token management.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

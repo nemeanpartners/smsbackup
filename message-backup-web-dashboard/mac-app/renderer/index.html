@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Clarified — Backup</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body class="clarified-body">
+  <div class="clarified-app">
+    <aside class="clarified-sidebar">
+      <div class="clarified-sidebar-label">Menu</div>
+      <nav class="clarified-nav">
+        <button id="navStartButton" class="clarified-nav-item" type="button">Start</button>
+        <button class="clarified-nav-item active" type="button">Backup</button>
+        <button class="clarified-nav-item clarified-nav-item-disabled" type="button" disabled>Communication analysis</button>
+        <button class="clarified-nav-item clarified-nav-item-disabled" type="button" disabled>Reports</button>
+      </nav>
+
+      <div class="clarified-sidebar-footer">
+        <button id="pickChatDb" class="btn clarified-btn-secondary clarified-sidebar-btn" type="button">Browse DB folder…</button>
+        <div id="chatDbPath" class="clarified-sidebar-path">Loading database…</div>
+        <button id="openLoginButton" class="clarified-sidebar-login" type="button">
+          <span id="accountModeBadge" class="account-badge">Guest</span>
+          <span id="accountEmail">Sign in (optional)</span>
+        </button>
+        <button id="logoutButton" class="sidebar-logout-btn hidden" type="button">Sign out</button>
+        <div id="authStatus" class="sidebar-status hidden"></div>
+      </div>
+    </aside>
+
+    <main class="clarified-main clarified-main-backup">
+      <header class="clarified-header clarified-header-compact">
+        <div class="clarified-header-brand">
+          <div class="logo-circle"><span>↔︎</span></div>
+          <div>
+            <h1>Clarified</h1>
+            <p>Choose your numbers, preview the conversation, then save the XML backup.</p>
+          </div>
+        </div>
+      </header>
+
+      <section class="clarified-backup-card">
+        <div class="clarified-number-row">
+          <div class="extract-field">
+            <label for="myNumberInput">Your phone number</label>
+            <input id="myNumberInput" class="contact-input" type="text" placeholder="+61412345678" list="myNumberSuggestions" autocomplete="off" />
+            <datalist id="myNumberSuggestions"></datalist>
+          </div>
+          <div class="extract-field">
+            <label for="contactSelect">Choose a contact number</label>
+            <select id="contactSelect" class="contact-select">
+              <option value="">Select a contact…</option>
+            </select>
+          </div>
+        </div>
+
+        <p id="exportDescription" class="clarified-export-copy">Select your phone number and a contact to preview the conversation.</p>
+
+        <div class="clarified-preview-header">
+          <h2>Conversation preview (snippet only)</h2>
+          <button id="loadContactsButton" class="btn clarified-btn-secondary clarified-btn-small" type="button">Reload contacts</button>
+        </div>
+
+        <div id="threadContainer" class="chat-preview">
+          <div class="thread-placeholder">Loading your Messages database…</div>
+        </div>
+
+        <div class="clarified-save-row">
+          <div class="clarified-save-meta">
+            <button id="pickOutput" class="btn clarified-btn-secondary clarified-btn-small" type="button">Choose save location…</button>
+            <span id="outputPath" class="path-label">Defaults to Desktop/sms_export.xml</span>
+          </div>
+          <button id="convertButton" class="btn clarified-btn-next" type="button">Next: Save Conversation</button>
+        </div>
+
+        <div id="status" class="status-label clarified-status">Preparing backup…</div>
+      </section>
+    </main>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+
+</html>

@@ -67,6 +67,32 @@ function isGarbageBlobText(value) {
   return markers.some((marker) => value.includes(marker));
 }
 
+function hasBinaryArtifactShape(value) {
+  const text = String(value || '');
+  if (!text) {
+    return true;
+  }
+
+  if (/[\u2400-\u243f\u2500-\u259f\ufffd]/u.test(text)) {
+    return true;
+  }
+
+  const letters = text.match(/[A-Za-z]/g)?.length || 0;
+  const spaces = text.match(/\s/g)?.length || 0;
+  const cjk = text.match(/[\u3400-\u9fff\uf900-\ufaff]/gu)?.length || 0;
+  const visible = text.replace(/\s/g, '').length;
+
+  if (visible >= 20 && cjk / visible > 0.25 && letters / visible < 0.15) {
+    return true;
+  }
+
+  if (visible >= 80 && spaces / text.length < 0.04 && letters / visible < 0.35 && !/^https?:\/\//i.test(text)) {
+    return true;
+  }
+
+  return false;
+}
+
 function isLikelyReadableText(value) {
   if (value == null) {
     return false;
@@ -82,6 +108,10 @@ function isLikelyReadableText(value) {
   }
 
   if (isGarbageBlobText(text)) {
+    return false;
+  }
+
+  if (hasBinaryArtifactShape(text)) {
     return false;
   }
 
@@ -129,8 +159,14 @@ function decodeMessageSummaryInfo(summaryBlob) {
 
   try {
     const parsed = parseMessageSummary(buffer);
-    if (parsed && isLikelyReadableText(parsed)) {
-      return String(parsed).trim();
+    if (typeof parsed === 'string' && isLikelyReadableText(parsed)) {
+      return parsed.trim();
+    }
+    if (parsed?.editedTexts?.length) {
+      const text = parsed.editedTexts.find((candidate) => isLikelyReadableText(candidate));
+      if (text) {
+        return String(text).trim();
+      }
     }
   } catch {
     // Ignore summary parse failures.
@@ -145,7 +181,8 @@ function extractMessageBody(text, attributedBody, options = {}) {
   const attributedText = decodeAttributedBody(attributedBody);
   const summaryText = decodeMessageSummaryInfo(options.messageSummaryInfo);
 
-  const candidates = [attributedText, summaryText, plainText, subjectText]
+  const candidates = [plainText, attributedText, summaryText, subjectText]
+    .map((candidate) => String(candidate || '').trim())
     .filter((candidate) => isLikelyReadableText(candidate));
 
   if (!candidates.length) {
@@ -155,7 +192,7 @@ function extractMessageBody(text, attributedBody, options = {}) {
     return '';
   }
 
-  return candidates.sort((a, b) => b.length - a.length)[0];
+  return candidates[0];
 }
 
 module.exports = {

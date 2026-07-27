@@ -77,5 +77,6 @@ module.exports = async function afterPack(context) {
     '--output-partial-info-plist', partialPlist
   ]);
 
+  run('plutil', ['-replace', 'CFBundleIconFile', '-string', 'AppIcon.icns', infoPlistPath]);
   run('plutil', ['-replace', 'CFBundleIconName', '-string', 'AppIcon', infoPlistPath]);
 };

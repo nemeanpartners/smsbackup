@@ -72,11 +72,40 @@ function parseFirestoreInteger(field) {
   return 0;
 }
 
+function parseFirestoreString(field) {
+  if (!field) return '';
+  if (field.stringValue !== undefined) return String(field.stringValue);
+  return '';
+}
+
+function parseFirestoreTimestamp(field) {
+  if (!field) return '';
+  if (field.timestampValue) return String(field.timestampValue);
+  return '';
+}
+
+function parseFirestoreBoolean(field) {
+  if (!field) return false;
+  return field.booleanValue === true;
+}
+
 class AuthService {
   constructor({ userDataPath, configPath }) {
     this.sessionPath = path.join(userDataPath, 'auth-session.json');
+    this.pendingDownloadsPath = path.join(userDataPath, 'pending-downloads.json');
     this.configPath = configPath;
     this.session = readJson(this.sessionPath, null);
+    this.clearLegacyPendingDownloads();
+  }
+
+  clearLegacyPendingDownloads() {
+    try {
+      if (fs.existsSync(this.pendingDownloadsPath)) {
+        fs.rmSync(this.pendingDownloadsPath, { force: true });
+      }
+    } catch {
+      // Ignore cleanup failures; the Downloads UI has been removed.
+    }
   }
 
   readConfig() {
@@ -257,6 +286,111 @@ class AuthService {
     return existingCount;
   }
 
+  readPendingDownloads() {
+    const pending = readJson(this.pendingDownloadsPath, []);
+    return Array.isArray(pending) ? pending : [];
+  }
+
+  savePendingDownloads(downloads) {
+    const pending = Array.isArray(downloads) ? downloads : [];
+    if (!pending.length) {
+      if (fs.existsSync(this.pendingDownloadsPath)) {
+        fs.rmSync(this.pendingDownloadsPath, { force: true });
+      }
+      return;
+    }
+
+    writeJson(this.pendingDownloadsPath, pending);
+  }
+
+  queuePendingDownload({ fileName, userNumber, contactNumber, filePath, messageCount }) {
+    const pending = this.readPendingDownloads();
+    const now = new Date().toISOString();
+    const id = `download-${randomUUID()}`;
+    const download = {
+      id,
+      downloadId: id,
+      fileName: String(fileName || 'conversation.xml'),
+      filePath: String(filePath || ''),
+      userNumber: String(userNumber || ''),
+      contactNumber: String(contactNumber || ''),
+      messageCount: Number(messageCount || 0),
+      savedAt: now
+    };
+
+    pending.push(download);
+    this.savePendingDownloads(pending);
+    return download;
+  }
+
+  mapPendingDownload(download) {
+    return {
+      id: String(download.downloadId || download.id || ''),
+      downloadId: String(download.downloadId || download.id || ''),
+      fileName: String(download.fileName || 'conversation.xml'),
+      filePath: String(download.filePath || ''),
+      userNumber: String(download.userNumber || ''),
+      contactNumber: String(download.contactNumber || ''),
+      messageCount: Number(download.messageCount || 0),
+      savedAt: String(download.savedAt || ''),
+      pending: true
+    };
+  }
+
+  async writeDownloadDocument(session, download) {
+    const config = this.readConfig();
+    if (!config) {
+      throw new Error('Firebase config is missing.');
+    }
+
+    const id = String(download.id || `download-${randomUUID()}`);
+    const url = `${this.getFirestoreBase(config)}/documents/users/${encodeURIComponent(session.userId)}/downloads/${encodeURIComponent(id)}`;
+
+    await this.requestJson(url, {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${session.idToken}`
+      },
+      body: {
+        fields: {
+          userId: { stringValue: session.userId },
+          downloadId: { stringValue: id },
+          fileName: { stringValue: String(download.fileName || 'conversation.xml') },
+          userNumber: { stringValue: String(download.userNumber || '') },
+          contactNumber: { stringValue: String(download.contactNumber || '') },
+          messageCount: { integerValue: String(Number(download.messageCount || 0)) },
+          savedAt: { timestampValue: download.savedAt || new Date().toISOString() },
+          syncedAt: { timestampValue: new Date().toISOString() },
+          savedToAccount: { booleanValue: true },
+          source: { stringValue: download.source || 'desktop' }
+        }
+      }
+    });
+  }
+
+  async syncPendingDownload(downloadId, session = this.session) {
+    if (!session || session.mode !== 'firebase') {
+      return { ok: false, error: 'Sign in before saving this download to your account.' };
+    }
+
+    const pending = this.readPendingDownloads();
+    const targetId = String(downloadId || '');
+    const target = pending.find((download) => String(download.downloadId || download.id || '') === targetId);
+    if (!target) {
+      return { ok: false, error: 'This download was already saved or is no longer pending.' };
+    }
+
+    const activeSession = session === this.session ? await this.refreshFirebaseSessionIfNeeded() : session;
+    await this.writeDownloadDocument(activeSession, {
+      ...target,
+      source: 'desktop-manual-save'
+    });
+
+    const remaining = pending.filter((download) => String(download.downloadId || download.id || '') !== targetId);
+    this.savePendingDownloads(remaining);
+    return { ok: true, synced: 1, downloadId: targetId };
+  }
+
   async getAuthState() {
     if (!this.session) {
       return {
@@ -426,6 +560,99 @@ class AuthService {
     session.exportCount = nextCount;
     this.saveSession(session);
     return this.getAuthState();
+  }
+
+  async recordDownload({ fileName, userNumber, contactNumber, filePath, messageCount }) {
+    const download = this.queuePendingDownload({ fileName, userNumber, contactNumber, filePath, messageCount });
+    return { ok: true, pending: true, download: this.mapPendingDownload(download) };
+  }
+
+  async listDownloads(options = {}) {
+    const pendingDownloads = this.readPendingDownloads().map((download) => this.mapPendingDownload(download));
+
+    let session = null;
+    if (this.session?.mode === 'firebase') {
+      session = await this.refreshFirebaseSessionIfNeeded();
+    } else if (options.userId && options.idToken) {
+      session = {
+        mode: 'firebase',
+        userId: String(options.userId),
+        idToken: String(options.idToken),
+        email: '',
+        expiresAt: Date.now() + 300_000
+      };
+    }
+
+    if (!session) {
+      return { ok: true, downloads: pendingDownloads };
+    }
+
+    const remainingPending = this.readPendingDownloads().map((download) => this.mapPendingDownload(download));
+    const config = this.readConfig();
+    if (!config) {
+      throw new Error('Firebase config is missing.');
+    }
+
+    const url = `${this.getFirestoreBase(config)}/documents/users/${encodeURIComponent(session.userId)}:runQuery`;
+    const queryBody = {
+      structuredQuery: {
+        from: [{ collectionId: 'downloads' }],
+        orderBy: [{ field: { fieldPath: 'savedAt' }, direction: 'DESCENDING' }]
+      }
+    };
+
+    let response;
+    try {
+      response = await this.requestJson(url, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${session.idToken}`
+        },
+        body: queryBody
+      });
+    } catch {
+      response = await this.requestJson(url, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${session.idToken}`
+        },
+        body: {
+          structuredQuery: {
+            from: [{ collectionId: 'downloads' }]
+          }
+        }
+      });
+    }
+
+    const downloads = [];
+    const rows = Array.isArray(response) ? response : [];
+    for (const row of rows) {
+      if (!row?.document?.fields) continue;
+      const fields = row.document.fields;
+      downloads.push({
+        id: String(row.document.name || '').split('/').pop() || '',
+        downloadId: String(row.document.name || '').split('/').pop() || '',
+        fileName: parseFirestoreString(fields.fileName),
+        userNumber: parseFirestoreString(fields.userNumber),
+        contactNumber: parseFirestoreString(fields.contactNumber),
+        messageCount: parseFirestoreInteger(fields.messageCount),
+        savedAt: parseFirestoreTimestamp(fields.savedAt),
+        pending: !parseFirestoreBoolean(fields.savedToAccount)
+      });
+    }
+
+    const byId = new Map();
+    for (const download of [...downloads, ...remainingPending]) {
+      const key = download.id || `${download.fileName}-${download.userNumber}-${download.contactNumber}-${download.savedAt}`;
+      if (!byId.has(key)) {
+        byId.set(key, download);
+      }
+    }
+
+    const allDownloads = Array.from(byId.values())
+      .sort((a, b) => String(b.savedAt).localeCompare(String(a.savedAt)));
+
+    return { ok: true, downloads: allDownloads };
   }
 }
 

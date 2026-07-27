@@ -2,7 +2,10 @@ let webPreview = null;
 
 const HOSTED_LOGIN_URL = 'https://message-backup-web-dashboard-206706021143.asia-southeast1.run.app';
 
+let hasFirebaseAuth = false;
+
 const views = document.querySelectorAll('.view');
+const profileSectionLabel = document.getElementById('profileSectionLabel');
 const sectionToggles = document.querySelectorAll('.side-section-toggle');
 const submenus = document.querySelectorAll('.side-submenu');
 const subTabs = document.querySelectorAll('.side-subtab');
@@ -88,7 +91,7 @@ function navigateBottomTab(label) {
           }
         }
       } catch (e) {
-        console.error('Clarified desktop nav error', e);
+        console.error('SMSBackup desktop nav error', e);
       }
     })();
   `;
@@ -133,7 +136,7 @@ function navigateWebSubpage(bottomLabel, targetLabel) {
           }, 120);
         }
       } catch (e) {
-        console.error('Clarified desktop subpage nav error', e);
+        console.error('SMSBackup desktop subpage nav error', e);
       }
     })();
   `;
@@ -174,6 +177,28 @@ function buildHostedLoginUrl() {
 
 function openProfileSection() {
   openLoginSection();
+}
+
+function updateProfileSectionLabel(isLoggedIn) {
+  if (!profileSectionLabel) return;
+  profileSectionLabel.textContent = isLoggedIn ? 'Account' : 'Login / Sign Up';
+}
+
+async function refreshProfileSectionLabel() {
+  let isLoggedIn = hasFirebaseAuth;
+
+  if (window.electronAPI && typeof window.electronAPI.getAuthState === 'function') {
+    try {
+      const state = await window.electronAPI.getAuthState();
+      if (state && state.authenticated) {
+        isLoggedIn = true;
+      }
+    } catch (_) {
+      // keep current value
+    }
+  }
+
+  updateProfileSectionLabel(isLoggedIn);
 }
 
 function openSetupSection() {
@@ -245,6 +270,14 @@ subTabs.forEach((tab) => {
 
 // Initial view
 setActiveView('backup');
+void refreshProfileSectionLabel();
+
+if (window.electronAPI && typeof window.electronAPI.onAuthStateChanged === 'function') {
+  window.electronAPI.onAuthStateChanged((state) => {
+    hasFirebaseAuth = !!(state && state.authenticated);
+    updateProfileSectionLabel(hasFirebaseAuth);
+  });
+}
 
 const chatDbLabel = document.getElementById('chatDbPath');
 const pickChatDbButton = document.getElementById('pickChatDb');
@@ -327,7 +360,6 @@ async function tryAutoFindChatDb({ fallbackToPicker } = { fallbackToPicker: true
 
 // Bridge auth from the login webview back to the main Electron process.
 webPreview = document.getElementById('loginWebview') || document.querySelector('.web-preview-frame');
-let hasFirebaseAuth = false;
 if (webPreview) {
   webPreview.addEventListener('ipc-message', (event) => {
     if (event.channel === 'desktop-auth' && event.args && event.args[0]) {
@@ -337,6 +369,7 @@ if (webPreview) {
       }
       if (payload && payload.uid && payload.idToken) {
         hasFirebaseAuth = true;
+        updateProfileSectionLabel(true);
       }
     }
   });
@@ -355,7 +388,7 @@ if (winMaximizeButton && window.electronAPI && typeof window.electronAPI.toggleM
   });
 }
 
-// Side "Run export & analyze" button orchestrates:
+// Side "Run export" button orchestrates:
 // 1) auto-find / select chat.db
 // 2) load contacts
 // 3) ensure number + contact
@@ -646,7 +679,7 @@ async function loadThreadPreview(handle) {
       return;
     }
 
-    renderThread(result.messages || []);
+    renderThread(result.messages || [], result.totalCount);
   } catch (err) {
     threadContainer.innerHTML = '<div class="thread-placeholder">Unexpected error: ' +
       (err.message || String(err)) + '</div>';
@@ -864,23 +897,34 @@ async function populateContacts(contacts) {
   updateStepSections();
 }
 
-function renderThread(messages) {
+function renderThread(messages, totalCount) {
   if (!threadContainer) {
     return;
   }
 
-  const readable = (messages || []).filter((msg) => msg.body && msg.body !== '[Message]');
+  const displayMessages = (messages || []).filter((msg) => msg.body);
 
-  if (!readable.length) {
-    threadContainer.innerHTML = '<div class="thread-placeholder">No readable messages to show for this contact.</div>';
+  if (!displayMessages.length) {
+    const count = Number(totalCount || 0);
+    threadContainer.innerHTML = count > 0
+      ? `<div class="thread-placeholder">${count} message${count === 1 ? '' : 's'} found, but no message bodies could be decoded for preview. The XML export will still include fallback entries.</div>`
+      : '<div class="thread-placeholder">No messages found for this contact.</div>';
     return;
   }
 
   const snippetSize = 60;
-  const snippet = readable.slice(-snippetSize);
+  const snippet = displayMessages.slice(0, snippetSize);
 
   const container = document.createElement('div');
   container.className = 'message-thread';
+
+  const count = Number(totalCount || displayMessages.length);
+  if (count > displayMessages.length) {
+    const summary = document.createElement('div');
+    summary.className = 'thread-placeholder';
+    summary.textContent = `Showing the first ${displayMessages.length} of ${count} messages. The XML export includes the full conversation.`;
+    container.appendChild(summary);
+  }
 
   for (const msg of snippet) {
     const row = document.createElement('div');
@@ -905,7 +949,7 @@ function renderThread(messages) {
 
   threadContainer.innerHTML = '';
   threadContainer.appendChild(container);
-  threadContainer.scrollTop = threadContainer.scrollHeight;
+  threadContainer.scrollTop = 0;
 
   threadCollapsed = false;
   threadContainer.classList.remove('collapsed');
@@ -952,15 +996,15 @@ function updatePairSummary() {
 
   if (userNumber && contact) {
     pairSummary.textContent =
-      `Clarified will export the full conversation between ${userNumber} (you) and ${contact} into a single XML file.`;
+      `SMSBackup will export the full conversation between ${userNumber} (you) and ${contact} into a single XML file.`;
   } else if (userNumber && !contact) {
     pairSummary.textContent =
       'Enter your number, then pick a contact to export your full conversation as XML.';
   } else if (!userNumber && contact) {
     pairSummary.textContent =
-      'Pick a contact and enter your own number so Clarified can export the full conversation between you and that contact.';
+      'Pick a contact and enter your own number so SMSBackup can export the full conversation between you and that contact.';
   } else {
     pairSummary.textContent =
-      'Once you’ve entered your number and picked a contact, Clarified will export the full conversation between your number and that contact into a single XML file.';
+      'Once you’ve entered your number and picked a contact, SMSBackup will export the full conversation between your number and that contact into a single XML file.';
   }
 }
