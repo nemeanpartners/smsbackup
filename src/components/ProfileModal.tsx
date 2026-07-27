@@ -19,7 +19,8 @@ import {
   Edit2,
   Save,
   LogOut,
-  RefreshCw
+  RefreshCw,
+  MessageSquare
 } from 'lucide-react';
 
 interface ProfileModalProps {
@@ -30,6 +31,7 @@ interface ProfileModalProps {
   onProfileUpdated: (updated: UserConfig) => void;
   isAdmin: boolean;
   onOpenAdminPortal?: () => void;
+  onOpenSupport?: () => void;
 }
 
 export function ProfileModal({ 
@@ -39,7 +41,8 @@ export function ProfileModal({
   userProfile, 
   onProfileUpdated,
   isAdmin,
-  onOpenAdminPortal
+  onOpenAdminPortal,
+  onOpenSupport
 }: ProfileModalProps) {
   const [displayName, setDisplayName] = useState(userProfile.displayName || '');
   const [isEditingName, setIsEditingName] = useState(false);
@@ -248,6 +251,20 @@ export function ProfileModal({
               >
                 <Shield className="w-3.5 h-3.5" />
                 Open Admin Portal
+              </button>
+            )}
+
+            {onOpenSupport && !currentUser.isAnonymous && (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onOpenSupport();
+                }}
+                className="mt-3 w-full border border-slate-500/20 bg-slate-500/10 hover:bg-slate-500/15 text-xs font-bold py-2.5 px-4 rounded-lg transition flex items-center justify-center gap-2"
+              >
+                <MessageSquare className="w-3.5 h-3.5" />
+                Support tickets
               </button>
             )}
           </div>

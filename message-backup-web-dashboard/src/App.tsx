@@ -6,6 +6,7 @@ import { ensureUserProfile, fetchAdminUserDownloadSummaries } from './services/d
 import { AdminUserDownloadSummary, UserConfig } from './types';
 import { LoginGate } from './components/LoginGate';
 import { ProfileModal } from './components/ProfileModal';
+import { SupportTicketsModal } from './components/SupportTicketsModal';
 import AdminSupportPortal from './components/admin/AdminSupportPortal';
 import { Shield, LogOut, CheckCircle, RefreshCw, AlertTriangle, User as UserIcon, Users, FileDown, CalendarClock, MessageSquare } from 'lucide-react';
 
@@ -39,6 +40,7 @@ export default function App() {
   const [authLoading, setAuthLoading] = useState(true);
   const [connectionVerified, setConnectionVerified] = useState<boolean | null>(null);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isSupportOpen, setIsSupportOpen] = useState(false);
   const [showAdminPortal, setShowAdminPortal] = useState(false);
   const [adminView, setAdminView] = useState<'downloads' | 'support'>('downloads');
   const [adminSummaries, setAdminSummaries] = useState<AdminUserDownloadSummary[]>([]);
@@ -135,6 +137,7 @@ export default function App() {
         setCurrentUser(null);
         setUserProfile(null);
         setAdminSummaries([]);
+        setIsSupportOpen(false);
         setShowAdminPortal(false);
         setAdminView('downloads');
       }
@@ -172,6 +175,7 @@ export default function App() {
         setCurrentUser(null);
         setUserProfile(null);
         setAdminSummaries([]);
+        setIsSupportOpen(false);
         setShowAdminPortal(false);
         setAdminView('downloads');
       } else {
@@ -280,6 +284,14 @@ export default function App() {
             onProfileUpdated={(updated) => setUserProfile(updated)}
             isAdmin={isAdminEmail(currentUser.email)}
             onOpenAdminPortal={() => setShowAdminPortal(true)}
+            onOpenSupport={() => setIsSupportOpen(true)}
+          />
+        )}
+        {currentUser && (
+          <SupportTicketsModal
+            isOpen={isSupportOpen}
+            onClose={() => setIsSupportOpen(false)}
+            currentUser={currentUser}
           />
         )}
       </div>
@@ -383,8 +395,14 @@ export default function App() {
             onProfileUpdated={(updated) => setUserProfile(updated)}
             isAdmin={isAdmin}
             onOpenAdminPortal={() => setShowAdminPortal(true)}
+            onOpenSupport={() => setIsSupportOpen(true)}
           />
         )}
+        <SupportTicketsModal
+          isOpen={isSupportOpen}
+          onClose={() => setIsSupportOpen(false)}
+          currentUser={currentUser}
+        />
       </div>
     );
   }
@@ -611,8 +629,14 @@ export default function App() {
           onProfileUpdated={(updated) => setUserProfile(updated)}
           isAdmin={true}
           onOpenAdminPortal={() => setShowAdminPortal(true)}
+          onOpenSupport={() => setIsSupportOpen(true)}
         />
       )}
+      <SupportTicketsModal
+        isOpen={isSupportOpen}
+        onClose={() => setIsSupportOpen(false)}
+        currentUser={currentUser}
+      />
     </div>
   );
 }
