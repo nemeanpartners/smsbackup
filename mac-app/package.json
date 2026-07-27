@@ -23,7 +23,7 @@
   },
   "build": {
     "appId": "backupmessages.nemeanpartners.mac",
-    "buildVersion": "43",
+    "buildVersion": "44",
     "productName": "SMSBackup",
     "asar": true,
     "afterPack": "scripts/after-pack.js",
