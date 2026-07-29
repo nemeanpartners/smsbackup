@@ -38,6 +38,23 @@ function writeBridgeLog(message) {
   console.log(message);
 }
 
+function showAndFocusWindow(win, reason) {
+  if (!win || win.isDestroyed()) return;
+  writeBridgeLog(`Showing main window: ${reason}`);
+  if (process.platform === 'darwin') {
+    app.setActivationPolicy('regular');
+    app.dock?.show?.();
+  }
+  if (!win.isVisible()) {
+    win.show();
+  }
+  if (win.isMinimized()) {
+    win.restore();
+  }
+  app.focus({ steal: true });
+  win.focus();
+}
+
 function getPortalDistDir() {
   return path.join(__dirname, 'web-portal-dist');
 }
@@ -365,10 +382,7 @@ function notifyAuthState(state) {
 
 function focusMainWindow() {
   if (mainWindow && !mainWindow.isDestroyed()) {
-    if (!mainWindow.isVisible()) {
-      mainWindow.show();
-    }
-    mainWindow.focus();
+    showAndFocusWindow(mainWindow, 'focus requested');
   }
 }
 
@@ -385,14 +399,14 @@ function showMainWindow() {
   }
 
   if (!mainWindow.isVisible()) {
-    mainWindow.show();
+    showAndFocusWindow(mainWindow, 'show requested');
   }
 
   if (mainWindow.isMinimized()) {
     mainWindow.restore();
   }
 
-  mainWindow.focus();
+  showAndFocusWindow(mainWindow, 'show main window requested');
 }
 
 function installApplicationMenu() {
@@ -464,13 +478,14 @@ function installApplicationMenu() {
 }
 
 function createWindow() {
+  writeBridgeLog('Creating main window.');
   mainWindow = new BrowserWindow({
     width: 1420,
     height: 920,
     minWidth: 1180,
     minHeight: 760,
     resizable: true,
-    show: false,
+    show: true,
     title: 'SMSBackup',
     backgroundColor: '#05060a',
       webPreferences: {
@@ -484,14 +499,24 @@ function createWindow() {
 
   attachWindowOpenHandler(mainWindow, mainWindow);
 
+  mainWindow.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL) => {
+    writeBridgeLog(`Main window failed to load ${validatedURL}: ${errorCode} ${errorDescription}`);
+    showAndFocusWindow(mainWindow, 'load failure fallback');
+  });
+
+  mainWindow.webContents.on('did-finish-load', () => {
+    showAndFocusWindow(mainWindow, 'load finished');
+  });
+
   mainWindow.once('ready-to-show', () => {
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.show();
-      mainWindow.focus();
-    }
+    showAndFocusWindow(mainWindow, 'ready-to-show');
   });
 
   void loadNativeApp();
+
+  setTimeout(() => {
+    showAndFocusWindow(mainWindow, 'startup fallback timer');
+  }, 1500);
 
   mainWindow.on('closed', () => {
     closeLoginPopup();
@@ -500,6 +525,10 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  if (process.platform === 'darwin') {
+    app.setActivationPolicy('regular');
+    app.dock?.show?.();
+  }
   bridgeLogPath = path.join(app.getPath('userData'), 'desktop-bridge.log');
   writeBridgeLog('Application ready.');
   authService = createAuthService({

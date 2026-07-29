@@ -7,6 +7,7 @@ import { AdminUserDownloadSummary, UserConfig } from './types';
 import { LoginGate } from './components/LoginGate';
 import { ProfileModal } from './components/ProfileModal';
 import { SupportTicketsModal } from './components/SupportTicketsModal';
+import { ContactSupportPage } from './components/ContactSupportPage';
 import AdminSupportPortal from './components/admin/AdminSupportPortal';
 import { Shield, LogOut, CheckCircle, RefreshCw, AlertTriangle, User as UserIcon, Users, FileDown, CalendarClock, MessageSquare } from 'lucide-react';
 
@@ -34,6 +35,8 @@ function formatAdminDate(value: string) {
 }
 
 export default function App() {
+  const isContactSupportPage = typeof window !== 'undefined' &&
+    window.location.pathname.replace(/\/+$/, '').toLowerCase() === '/contactus';
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<UserConfig | null>(null);
   
@@ -190,6 +193,10 @@ export default function App() {
     localStorage.setItem('is_offline_sandbox', 'true');
     setIsOfflineSandbox(true);
   };
+
+  if (isContactSupportPage) {
+    return <ContactSupportPage />;
+  }
 
   if (authLoading) {
     return (
